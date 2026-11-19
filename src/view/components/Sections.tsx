@@ -13,10 +13,13 @@ export function Hero({ locale, onStart }: { locale: Locale; onStart: () => void 
     <section className="hero">
       <div className="container hero__inner">
         <div className="hero__copy">
+          <p className="eyebrow"><i aria-hidden="true" />{d.eyebrow}</p>
           <h1>{d.title}</h1>
           <p className="lead">{d.lead}</p>
           <div className="hero__actions">
-            <button type="button" className="btn btn--primary" onClick={onStart}>{d.cta}</button>
+            <button type="button" className="btn btn--primary" onClick={onStart}>
+              {d.cta} <ArrowIcon className="icon" />
+            </button>
             <a className="btn btn--ghost" href="#servicios">{d.secondary}</a>
           </div>
           <HowItWorks locale={locale} />

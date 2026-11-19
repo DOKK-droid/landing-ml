@@ -65,6 +65,7 @@ export function SiteFooter({ locale }: { locale: Locale }) {
           <div>
             <strong>Mariano Lemos Barbaro</strong>
             <p>{d.role}</p>
+            <p className="footer__tagline">{d.tagline}</p>
           </div>
         </div>
         <ul className="footer__contact">

@@ -23,7 +23,7 @@ const PEOPLE_USING: Option[] = [
 export const SERVICES: Service[] = [
   {
     id: 'consultoria',
-    color: '#7cc4ff',
+    color: '#2fe6ff',
     short: t('Consultoría', 'Consultoria', 'Consulting'),
     tagline: t('Diagnóstico del negocio antes de invertir', 'Diagnóstico do negócio antes de investir', 'Business diagnosis before you invest'),
     title: t('Consultoría & Gestión', 'Consultoria & Gestão', 'Consulting & Management'),
@@ -82,7 +82,7 @@ export const SERVICES: Service[] = [
   },
   {
     id: 'desarrollo',
-    color: '#b3a8ff',
+    color: '#9d86ff',
     short: t('Software', 'Software', 'Software'),
     tagline: t('Sistemas a medida de su forma de trabajar', 'Sistemas sob medida para o seu jeito de trabalhar', 'Systems built around the way you work'),
     title: t('Desarrollo de Software', 'Desenvolvimento de Software', 'Software Development'),
@@ -142,7 +142,7 @@ export const SERVICES: Service[] = [
   },
   {
     id: 'gestion',
-    color: '#f5a8cb',
+    color: '#ff6fbf',
     short: t('Gestión', 'Gestão', 'Management'),
     tagline: t('Ventas, stock y clientes en una sola plataforma', 'Vendas, estoque e clientes em uma só plataforma', 'Sales, stock and customers in one platform'),
     title: t('Gestión & Integraciones', 'Gestão & Integrações', 'Management & Integrations'),
@@ -196,7 +196,7 @@ export const SERVICES: Service[] = [
   },
   {
     id: 'infraestructura',
-    color: '#6fe0c2',
+    color: '#3b9bff',
     short: t('Infraestructura', 'Infraestrutura', 'Infrastructure'),
     tagline: t('Redes, servidores y nube estables y seguros', 'Redes, servidores e nuvem estáveis e seguros', 'Reliable, secure networks, servers and cloud'),
     title: t('Infraestructura & Redes', 'Infraestrutura & Redes', 'Infrastructure & Networks'),
@@ -259,7 +259,7 @@ export const SERVICES: Service[] = [
   },
   {
     id: 'ia',
-    color: '#ffd166',
+    color: '#ffb23e',
     short: t('IA', 'IA', 'AI'),
     tagline: t('Automatizar lo que hoy se hace a mano', 'Automatizar o que hoje é feito à mão', 'Automate what is done by hand today'),
     title: t('Inteligencia Artificial', 'Inteligência Artificial', 'Artificial Intelligence'),
@@ -322,7 +322,7 @@ export const SERVICES: Service[] = [
   },
   {
     id: 'soporte',
-    color: '#ff8f7e',
+    color: '#3fe0a0',
     short: t('Soporte 24/7', 'Suporte 24/7', '24/7 Support'),
     tagline: t('Reparaciones y emergencias las 24 horas', 'Consertos e emergências 24 horas', 'Repairs and emergencies around the clock'),
     title: t('Soporte & Hardware 24/7', 'Suporte & Hardware 24/7', 'Support & Hardware 24/7'),

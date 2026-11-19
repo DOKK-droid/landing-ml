@@ -8,7 +8,7 @@ export interface Dictionary {
   role: string;
   tagline: string;
   nav: { services: string; approach: string; contact: string; language: string };
-  hero: { title: string; lead: string; cta: string; secondary: string; };
+  hero: { eyebrow: string; title: string; lead: string; cta: string; secondary: string };
   emergency: { label: string; message: string };
   how: { title: string; steps: { t: string; d: string }[] };
   services: {
@@ -39,9 +39,10 @@ const es: Dictionary = {
   tagline: 'Innovación · Tecnología · Soluciones reales',
   nav: { services: 'Servicios', approach: 'Enfoque', contact: 'Contacto', language: 'Idioma' },
   hero: {
-    title: 'Tecnología pensada desde su negocio',
+    eyebrow: 'Diagnósticos · Diseños · Implementación',
+    title: 'Soluciones IT que empiezan por entender su negocio',
     lead: 'Primero entiendo cómo trabaja su organización; después diseño la solución. Cuénteme qué necesita y lo vemos por videollamada.',
-    cta: 'Contar mi caso',
+    cta: 'Iniciar relevamiento',
     secondary: 'Ver servicios',
   },
   emergency: {
@@ -126,9 +127,10 @@ const pt: Dictionary = {
   tagline: 'Inovação · Tecnologia · Soluções reais',
   nav: { services: 'Serviços', approach: 'Abordagem', contact: 'Contato', language: 'Idioma' },
   hero: {
-    title: 'Tecnologia pensada a partir do seu negócio',
+    eyebrow: 'Diagnósticos · Projetos · Implementação',
+    title: 'Soluções de TI que começam por entender o seu negócio',
     lead: 'Primeiro entendo como sua organização trabalha; depois projeto a solução. Conte o que precisa e conversamos por videochamada.',
-    cta: 'Contar meu caso',
+    cta: 'Iniciar levantamento',
     secondary: 'Ver serviços',
   },
   emergency: {
@@ -213,9 +215,10 @@ const en: Dictionary = {
   tagline: 'Innovation · Technology · Real solutions',
   nav: { services: 'Services', approach: 'Approach', contact: 'Contact', language: 'Language' },
   hero: {
-    title: 'Technology designed around your business',
+    eyebrow: 'Diagnosis · Design · Implementation',
+    title: 'IT solutions that start by understanding your business',
     lead: 'First I understand how your organization works; then I design the solution. Tell me what you need and we will talk it through on a video call.',
-    cta: 'Tell me your case',
+    cta: 'Start the assessment',
     secondary: 'See services',
   },
   emergency: {

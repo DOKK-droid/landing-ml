@@ -3,7 +3,10 @@ import { notFound } from 'next/navigation';
 import { site } from '@/config/site';
 import { DICTIONARIES } from '@/model/i18n';
 import { LOCALES, isLocale } from '@/model/types';
-import '@fontsource-variable/archivo/wdth.css';
+import '@fontsource-variable/saira';
+import '@fontsource/ibm-plex-sans/400.css';
+import '@fontsource/ibm-plex-sans/500.css';
+import '@fontsource/ibm-plex-sans/600.css';
 import '@/styles/globals.css';
 
 export function generateStaticParams() {
@@ -29,7 +32,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   };
 }
 
-export const viewport: Viewport = { themeColor: '#0b2140', width: 'device-width', initialScale: 1 };
+export const viewport: Viewport = { themeColor: '#05070c', width: 'device-width', initialScale: 1 };
 
 export default async function LocaleLayout({ children, params }: { children: React.ReactNode; params: Promise<{ locale: string }> }) {
   const { locale } = await params;
