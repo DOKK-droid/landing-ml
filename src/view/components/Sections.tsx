@@ -4,6 +4,7 @@ import { SERVICES } from '@/model/catalog';
 import { DICTIONARIES } from '@/model/i18n';
 import type { Locale, ServiceId } from '@/model/types';
 import { ArrowIcon, CheckIcon, ServiceIcon } from './Icons';
+import { HeroDiagram } from './HeroDiagram';
 import { Logo } from './Logo';
 import { ServiceArt } from './ServiceArt';
 
@@ -22,9 +23,24 @@ export function Hero({ locale, onStart }: { locale: Locale; onStart: () => void 
             </button>
             <a className="btn btn--ghost" href="#servicios">{d.secondary}</a>
           </div>
-          <HowItWorks locale={locale} />
         </div>
         <Logo variant="hero" className="hero__logo" />
+      </div>
+    </section>
+  );
+}
+
+export function Concept({ locale, selected, onPick }: { locale: Locale; selected: ServiceId[]; onPick: (id: ServiceId) => void }) {
+  const d = DICTIONARIES[locale].concept;
+  return (
+    <section className="section concept" id="enfoque-negocio" aria-labelledby="concept-title">
+      <div className="container concept__inner">
+        <div className="concept__copy">
+          <h2 id="concept-title" className="section__title">{d.title}</h2>
+          <p className="concept__lead">{d.lead}</p>
+          <HowItWorks locale={locale} />
+        </div>
+        <HeroDiagram locale={locale} selected={selected} onPick={onPick} />
       </div>
     </section>
   );

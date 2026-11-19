@@ -9,6 +9,7 @@ export interface Dictionary {
   tagline: string;
   nav: { services: string; approach: string; contact: string; language: string };
   hero: { eyebrow: string; title: string; lead: string; cta: string; secondary: string };
+  concept: { title: string; lead: string; center: string; diagram: string };
   emergency: { label: string; message: string };
   how: { title: string; steps: { t: string; d: string }[] };
   services: {
@@ -41,9 +42,15 @@ const es: Dictionary = {
   hero: {
     eyebrow: 'Diagnósticos · Diseños · Implementación',
     title: 'Soluciones IT que empiezan por entender su negocio',
-    lead: 'Primero entiendo cómo trabaja su organización; después diseño la solución. Cuénteme qué necesita y lo vemos por videollamada.',
+    lead: 'Consultoría, software, gestión, infraestructura, inteligencia artificial y soporte 24/7. Cuénteme qué necesita y lo vemos por videollamada.',
     cta: 'Iniciar relevamiento',
     secondary: 'Ver servicios',
+  },
+  concept: {
+    title: 'Tecnología pensada desde su negocio',
+    lead: 'Primero entiendo cómo trabaja su organización; después diseño la solución. Su negocio va al centro y cada servicio se conecta a él según lo que necesite.',
+    center: 'Su negocio',
+    diagram: 'Diagrama: su negocio en el centro, conectado a seis servicios.',
   },
   emergency: {
     label: 'Emergencia 24/7',
@@ -129,9 +136,15 @@ const pt: Dictionary = {
   hero: {
     eyebrow: 'Diagnósticos · Projetos · Implementação',
     title: 'Soluções de TI que começam por entender o seu negócio',
-    lead: 'Primeiro entendo como sua organização trabalha; depois projeto a solução. Conte o que precisa e conversamos por videochamada.',
+    lead: 'Consultoria, software, gestão, infraestrutura, inteligência artificial e suporte 24/7. Conte o que precisa e conversamos por videochamada.',
     cta: 'Iniciar levantamento',
     secondary: 'Ver serviços',
+  },
+  concept: {
+    title: 'Tecnologia pensada a partir do seu negócio',
+    lead: 'Primeiro entendo como sua organização trabalha; depois projeto a solução. Seu negócio fica no centro e cada serviço se conecta a ele conforme a necessidade.',
+    center: 'Seu negócio',
+    diagram: 'Diagrama: seu negócio no centro, conectado a seis serviços.',
   },
   emergency: {
     label: 'Emergência 24/7',
@@ -217,9 +230,15 @@ const en: Dictionary = {
   hero: {
     eyebrow: 'Diagnosis · Design · Implementation',
     title: 'IT solutions that start by understanding your business',
-    lead: 'First I understand how your organization works; then I design the solution. Tell me what you need and we will talk it through on a video call.',
+    lead: 'Consulting, software, management, infrastructure, artificial intelligence and 24/7 support. Tell me what you need and we will talk it through on a video call.',
     cta: 'Start the assessment',
     secondary: 'See services',
+  },
+  concept: {
+    title: 'Technology designed around your business',
+    lead: 'First I understand how your organization works; then I design the solution. Your business sits at the center and each service connects to it as needed.',
+    center: 'Your business',
+    diagram: 'Diagram: your business at the center, connected to six services.',
   },
   emergency: {
     label: '24/7 Emergency',

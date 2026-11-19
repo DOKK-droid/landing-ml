@@ -135,6 +135,36 @@ button { font: inherit; color: inherit; }
 @keyframes arcs-tilt { 0%, 100% { transform: rotateX(0deg) rotateZ(0deg); } 50% { transform: rotateX(58deg) rotateZ(-24deg); } }
 @keyframes mark-float { 0%, 100% { transform: rotateY(-14deg) rotateX(4deg) translateY(0); } 50% { transform: rotateY(14deg) rotateX(-4deg) translateY(-6px); } }
 
+/* Concepto: "Tecnología pensada desde su negocio" (v1) */
+.concept__inner { display: grid; gap: 28px; align-items: center; }
+.concept__lead { margin-top: 14px; color: var(--muted); font-size: clamp(16px, 2.1vw, 18px); max-width: 50ch; }
+.concept .steps { margin-top: 26px; }
+
+/* Diagrama de arquitectura */
+.diagram { margin: 0; width: 100%; max-width: 560px; justify-self: center; }
+.diagram svg { display: block; width: 100%; height: auto; overflow: visible; font-family: var(--font-head); }
+.diagram__orbit { fill: none; stroke: rgba(143, 220, 255, 0.28); stroke-width: 1; stroke-dasharray: 2 7; }
+.diagram__dim { fill: none; stroke: var(--line-2); stroke-width: 1; }
+.diagram__link {
+  fill: none; stroke: var(--c); stroke-width: 1.6; opacity: .65; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--c) 70%, transparent));
+  stroke-dasharray: 1; stroke-dashoffset: 1;
+  transition: opacity .2s ease, stroke-width .2s ease;
+}
+.diagram.is-visible .diagram__link { animation: draw .9s var(--ease) forwards; animation-delay: calc(.15s + var(--i) * .1s); }
+.diagram__link.is-on { opacity: 1; stroke-width: 2.6; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.diagram__core rect { fill: rgba(138, 60, 255, 0.18); stroke: #b59cff; stroke-width: 1.6; filter: drop-shadow(0 0 12px rgba(138, 60, 255, 0.7)); }
+.diagram__core text { fill: var(--text); font-size: 18px; font-weight: 600; letter-spacing: .02em; }
+.diagram__node { cursor: pointer; opacity: 0; }
+.diagram.is-visible .diagram__node { animation: appear .5s ease forwards; animation-delay: calc(.5s + var(--i) * .1s); }
+.diagram__node rect { fill: rgba(11, 14, 24, 0.94); stroke: var(--line-2); stroke-width: 1.2; transition: fill .2s ease, stroke .2s ease; }
+.diagram__node text { fill: var(--text); font-size: 15px; font-weight: 600; }
+.diagram__icon { stroke: var(--c); }
+.diagram__node:hover rect, .diagram__node:focus-visible rect { stroke: var(--c); fill: color-mix(in srgb, var(--c) 12%, #0b0e18); }
+.diagram__node.is-on rect { stroke: var(--c); stroke-width: 2; fill: color-mix(in srgb, var(--c) 20%, #0b0e18); }
+.diagram__node:focus-visible { outline: none; }
+@keyframes appear { to { opacity: 1; } }
+
 /* ---------------- Secciones ---------------- */
 .section { padding: 56px 0; }
 .section__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; margin-bottom: 26px; }
@@ -306,6 +336,7 @@ button { font: inherit; color: inherit; }
   .emergency { right: 12px; padding: 0 12px; min-height: 40px; font-size: 13px; }
   .emergency__full { display: none; }
   .emergency__short { display: inline; }
+  .diagram { margin: 0 -8px; width: calc(100% + 16px); }
 }
 @media (min-width: 640px) {
   .sheets { grid-template-columns: repeat(2, 1fr); }
@@ -325,6 +356,7 @@ button { font: inherit; color: inherit; }
   .hero__inner { grid-template-columns: 1.25fr 1fr; gap: 56px; }
   .hero__logo { order: 0; width: min(100%, 420px); }
   .steps { grid-template-columns: 1fr; }
+  .concept__inner { grid-template-columns: 1fr 1.1fr; gap: 56px; }
   .sheets { grid-template-columns: repeat(3, 1fr); }
   .approach .container { grid-template-columns: auto 1fr; align-items: center; gap: 36px; }
   .approach__list { grid-template-columns: repeat(4, auto); justify-content: space-between; }
@@ -336,4 +368,6 @@ button { font: inherit; color: inherit; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .diagram__link { stroke-dashoffset: 0; }
+  .diagram__node { opacity: 1; }
 }
