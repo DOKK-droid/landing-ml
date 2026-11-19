@@ -8,7 +8,8 @@
 | Persistencia | **Sin base de datos** | El registro vive en WhatsApp. El estado del formulario se guarda en `sessionStorage` para no perderlo al cambiar de idioma |
 | Canal | Enlace `wa.me/<número>?text=` | Funciona en móvil y escritorio sin la API de WhatsApp Business |
 | Idiomas | Rutas `/es/`, `/pt/`, `/en/`; `/` detecta el idioma del navegador | SEO con `hreflang`. Las respuestas guardan **ids**, no textos, y por eso sobreviven al cambio de idioma |
-| 3D | Logo con CSS 3D (sin WebGL), desactivado con `prefers-reduced-motion` | Identidad visual sin penalizar la carga en celulares de gama media |
+| Diseño | Estética de plano técnico: grilla de dibujo, ilustraciones SVG propias por servicio y diagrama de arquitectura en el inicio, que se dibuja una sola vez al cargar | Comunica "arquitecto de sistemas" sin texto. Sin WebGL ni imágenes pesadas |
+| Tipografía | Archivo variable, servida desde el propio sitio (`@fontsource-variable`) | Sin dependencia de Google Fonts y con mejor privacidad |
 | IA | Fuera de la v1 | Ver "Evolución" |
 
 ## MVC

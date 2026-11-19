@@ -23,7 +23,9 @@ const PEOPLE_USING: Option[] = [
 export const SERVICES: Service[] = [
   {
     id: 'consultoria',
-    color: '#2fe6ff',
+    color: '#7cc4ff',
+    short: t('Consultoría', 'Consultoria', 'Consulting'),
+    tagline: t('Diagnóstico del negocio antes de invertir', 'Diagnóstico do negócio antes de investir', 'Business diagnosis before you invest'),
     title: t('Consultoría & Gestión', 'Consultoria & Gestão', 'Consulting & Management'),
     summary: t(
       'Analizo cómo funciona hoy su organización para detectar pérdidas, riesgos y oportunidades, y evaluar si una inversión conviene antes de hacerla.',
@@ -80,7 +82,9 @@ export const SERVICES: Service[] = [
   },
   {
     id: 'desarrollo',
-    color: '#9d86ff',
+    color: '#b3a8ff',
+    short: t('Software', 'Software', 'Software'),
+    tagline: t('Sistemas a medida de su forma de trabajar', 'Sistemas sob medida para o seu jeito de trabalhar', 'Systems built around the way you work'),
     title: t('Desarrollo de Software', 'Desenvolvimento de Software', 'Software Development'),
     summary: t(
       'Diseño y construyo un sistema a la medida de su forma de trabajar, con la información ordenada y controles de calidad en cada etapa.',
@@ -138,7 +142,9 @@ export const SERVICES: Service[] = [
   },
   {
     id: 'gestion',
-    color: '#ff6fbf',
+    color: '#f5a8cb',
+    short: t('Gestión', 'Gestão', 'Management'),
+    tagline: t('Ventas, stock y clientes en una sola plataforma', 'Vendas, estoque e clientes em uma só plataforma', 'Sales, stock and customers in one platform'),
     title: t('Gestión & Integraciones', 'Gestão & Integrações', 'Management & Integrations'),
     summary: t(
       'Unifico la gestión de su empresa (ventas, clientes, stock, compras y facturación) en una sola plataforma, y la conecto con las herramientas que ya usa.',
@@ -190,7 +196,9 @@ export const SERVICES: Service[] = [
   },
   {
     id: 'infraestructura',
-    color: '#3b9bff',
+    color: '#6fe0c2',
+    short: t('Infraestructura', 'Infraestrutura', 'Infrastructure'),
+    tagline: t('Redes, servidores y nube estables y seguros', 'Redes, servidores e nuvem estáveis e seguros', 'Reliable, secure networks, servers and cloud'),
     title: t('Infraestructura & Redes', 'Infraestrutura & Redes', 'Infrastructure & Networks'),
     summary: t(
       'Planifico y pongo en marcha la base técnica (servidores, nube, red y seguridad) para que todo funcione de forma estable y protegida.',
@@ -251,7 +259,9 @@ export const SERVICES: Service[] = [
   },
   {
     id: 'ia',
-    color: '#ffb23e',
+    color: '#ffd166',
+    short: t('IA', 'IA', 'AI'),
+    tagline: t('Automatizar lo que hoy se hace a mano', 'Automatizar o que hoje é feito à mão', 'Automate what is done by hand today'),
     title: t('Inteligencia Artificial', 'Inteligência Artificial', 'Artificial Intelligence'),
     summary: t(
       'Aplico inteligencia artificial donde genera un ahorro real: leer documentos e imágenes, responder consultas, clasificar información o asistir a su equipo.',
@@ -312,7 +322,9 @@ export const SERVICES: Service[] = [
   },
   {
     id: 'soporte',
-    color: '#3fe0a0',
+    color: '#ff8f7e',
+    short: t('Soporte 24/7', 'Suporte 24/7', '24/7 Support'),
+    tagline: t('Reparaciones y emergencias las 24 horas', 'Consertos e emergências 24 horas', 'Repairs and emergencies around the clock'),
     title: t('Soporte & Hardware 24/7', 'Suporte & Hardware 24/7', 'Support & Hardware 24/7'),
     summary: t(
       'Reparo y optimizo equipos y sistemas, y atiendo emergencias las 24 horas para que su operación no se detenga.',

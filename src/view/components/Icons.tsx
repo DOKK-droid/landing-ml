@@ -1,7 +1,7 @@
 /* Íconos de línea (24×24, trazo 1.6). */
 import type { IconName } from '@/model/types';
 
-const paths: Record<IconName, React.ReactNode> = {
+export const ICON_PATHS: Record<IconName, React.ReactNode> = {
   consultoria: (
     <>
       <path d="M4 19V9M10 19V5M16 19v-7M22 19H2" />
@@ -44,7 +44,7 @@ const paths: Record<IconName, React.ReactNode> = {
 export function ServiceIcon({ name, className }: { name: IconName; className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      {paths[name]}
+      {ICON_PATHS[name]}
     </svg>
   );
 }

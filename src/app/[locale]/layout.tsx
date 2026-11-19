@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { site } from '@/config/site';
 import { DICTIONARIES } from '@/model/i18n';
 import { LOCALES, isLocale } from '@/model/types';
+import '@fontsource-variable/archivo/wdth.css';
 import '@/styles/globals.css';
 
 export function generateStaticParams() {
@@ -28,18 +29,13 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   };
 }
 
-export const viewport: Viewport = { themeColor: '#05070c', width: 'device-width', initialScale: 1 };
+export const viewport: Viewport = { themeColor: '#0b2140', width: 'device-width', initialScale: 1 };
 
 export default async function LocaleLayout({ children, params }: { children: React.ReactNode; params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   return (
     <html lang={locale}>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Saira:wght@500;600&display=swap" />
-      </head>
       <body>{children}</body>
     </html>
   );

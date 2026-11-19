@@ -2,7 +2,7 @@
 
 Sitio de Mariano Lemos Barbaro. El cliente elige uno o varios servicios y responde un relevamiento corto en lenguaje de negocio. Al final envía por WhatsApp un mensaje estructurado, con una referencia para coordinar la videollamada.
 
-- Next.js 16 · TypeScript · CSS puro · sin base de datos · export estático
+- Next.js 16 · TypeScript · CSS puro · ilustraciones SVG propias (`src/view/components/ServiceArt.tsx`) · sin base de datos · export estático
 - Español, portugués e inglés (`/es/`, `/pt/`, `/en/`)
 - Arquitectura MVC: ver [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md)
 

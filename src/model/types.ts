@@ -35,6 +35,10 @@ export interface Service {
   id: ServiceId;
   color: string;
   title: L10n;
+  /** Nombre corto para el diagrama del inicio. */
+  short: L10n;
+  /** Frase de una línea visible en la tarjeta. */
+  tagline: L10n;
   summary: L10n;
   includes: L10n[];
   /** Qué conviene contar: se muestra en el detalle y como introducción del paso. */

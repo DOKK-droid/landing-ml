@@ -8,15 +8,15 @@ export interface Dictionary {
   role: string;
   tagline: string;
   nav: { services: string; approach: string; contact: string; language: string };
-  hero: { eyebrow: string; title: string; lead: string; cta: string; secondary: string };
+  hero: { title: string; lead: string; cta: string; secondary: string; center: string; diagram: string };
   emergency: { label: string; message: string };
   how: { title: string; steps: { t: string; d: string }[] };
   services: {
     title: string; subtitle: string; detail: string; add: string; remove: string; selected: string;
-    includes: string; needs: string; close: string;
+    includes: string; needs: string; hide: string;
   };
   bar: { selected: (n: number) => string; continue: string; clear: string };
-  approach: { title: string; items: string[]; note: string };
+  approach: { title: string; items: string[] };
   survey: {
     step: (n: number, total: number) => string; back: string; next: string; review: string;
     required: string; optional: string; fieldRequired: string; chooseOne: string; chooseAny: string; exit: string;
@@ -39,11 +39,12 @@ const es: Dictionary = {
   tagline: 'Innovación · Tecnología · Soluciones reales',
   nav: { services: 'Servicios', approach: 'Enfoque', contact: 'Contacto', language: 'Idioma' },
   hero: {
-    eyebrow: 'Diagnósticos · Diseños · Implementación',
-    title: 'Soluciones IT que empiezan por entender su negocio',
-    lead: 'Antes de proponer tecnología, analizo cómo trabaja su organización: dónde se pierde tiempo o dinero, qué activos conviene cuidar y qué es viable. Cuénteme su situación en unos minutos y coordinamos una videollamada.',
-    cta: 'Iniciar relevamiento',
+    title: 'Tecnología pensada desde su negocio',
+    lead: 'Primero entiendo cómo trabaja su organización; después diseño la solución. Cuénteme qué necesita y lo vemos por videollamada.',
+    cta: 'Contar mi caso',
     secondary: 'Ver servicios',
+    center: 'Su negocio',
+    diagram: 'Diagrama: su negocio en el centro, conectado a seis servicios.',
   },
   emergency: {
     label: 'Emergencia 24/7',
@@ -52,21 +53,21 @@ const es: Dictionary = {
   how: {
     title: 'Cómo funciona',
     steps: [
-      { t: 'Elija los servicios', d: 'Puede marcar uno o varios. Cada uno explica qué incluye y qué conviene contar.' },
-      { t: 'Responda preguntas simples', d: 'Sin tecnicismos, en el lenguaje de su negocio. Le lleva unos 5 minutos.' },
-      { t: 'Envíe el resumen por WhatsApp', d: 'Revisa el mensaje, lo envía y coordinamos una videollamada para proponerle la mejor alternativa.' },
+      { t: 'Elija servicios', d: 'Uno o varios.' },
+      { t: 'Responda', d: 'Preguntas simples, unos 5 minutos.' },
+      { t: 'Envíe por WhatsApp', d: 'Coordinamos una videollamada.' },
     ],
   },
   services: {
     title: 'Servicios',
-    subtitle: 'Seleccione lo que necesita. Si no está seguro, elija el más cercano: en la reunión lo definimos juntos.',
+    subtitle: 'Elija uno o varios. Si no está seguro, el más cercano: lo definimos juntos.',
     detail: 'Ver detalle',
-    add: 'Agregar al relevamiento',
-    remove: 'Quitar del relevamiento',
-    selected: 'Seleccionado',
-    includes: 'Qué incluye',
-    needs: 'Para preparar la reunión',
-    close: 'Cerrar',
+    add: 'Agregar',
+    remove: 'Quitar',
+    selected: 'Agregado',
+    includes: 'Incluye',
+    needs: 'Para la reunión',
+    hide: 'Ocultar detalle',
   },
   bar: {
     selected: (n) => (n === 1 ? '1 servicio seleccionado' : `${n} servicios seleccionados`),
@@ -74,14 +75,8 @@ const es: Dictionary = {
     clear: 'Limpiar',
   },
   approach: {
-    title: 'Primero el negocio, después la tecnología',
-    items: [
-      'Detectar fallas y puntos de pérdida',
-      'Aprovechar las ventajas que ya tiene',
-      'Evaluar viabilidad y retorno antes de invertir',
-      'Reducir gastos y cuidar sus activos',
-    ],
-    note: 'Con su relevamiento preparo la reunión y le propongo la alternativa que más le convenga a su caso.',
+    title: 'En cada diagnóstico busco',
+    items: ['Dónde se pierde tiempo o dinero', 'Qué ventajas aprovechar', 'Si la inversión es viable', 'Cómo cuidar sus activos'],
   },
   survey: {
     step: (n, total) => `Paso ${n} de ${total}`,
@@ -133,11 +128,12 @@ const pt: Dictionary = {
   tagline: 'Inovação · Tecnologia · Soluções reais',
   nav: { services: 'Serviços', approach: 'Abordagem', contact: 'Contato', language: 'Idioma' },
   hero: {
-    eyebrow: 'Diagnósticos · Projetos · Implementação',
-    title: 'Soluções de TI que começam por entender o seu negócio',
-    lead: 'Antes de propor tecnologia, analiso como sua organização trabalha: onde se perde tempo ou dinheiro, quais ativos vale a pena proteger e o que é viável. Conte sua situação em poucos minutos e agendamos uma videochamada.',
-    cta: 'Iniciar levantamento',
+    title: 'Tecnologia pensada a partir do seu negócio',
+    lead: 'Primeiro entendo como sua organização trabalha; depois projeto a solução. Conte o que precisa e conversamos por videochamada.',
+    cta: 'Contar meu caso',
     secondary: 'Ver serviços',
+    center: 'Seu negócio',
+    diagram: 'Diagrama: seu negócio no centro, conectado a seis serviços.',
   },
   emergency: {
     label: 'Emergência 24/7',
@@ -146,21 +142,21 @@ const pt: Dictionary = {
   how: {
     title: 'Como funciona',
     steps: [
-      { t: 'Escolha os serviços', d: 'Pode marcar um ou vários. Cada um explica o que inclui e o que vale a pena contar.' },
-      { t: 'Responda perguntas simples', d: 'Sem termos técnicos, na linguagem do seu negócio. Leva cerca de 5 minutos.' },
-      { t: 'Envie o resumo pelo WhatsApp', d: 'Revise a mensagem, envie e agendamos uma videochamada para propor a melhor alternativa.' },
+      { t: 'Escolha serviços', d: 'Um ou vários.' },
+      { t: 'Responda', d: 'Perguntas simples, cerca de 5 minutos.' },
+      { t: 'Envie pelo WhatsApp', d: 'Agendamos uma videochamada.' },
     ],
   },
   services: {
     title: 'Serviços',
-    subtitle: 'Selecione o que precisa. Se não tiver certeza, escolha o mais próximo: na reunião definimos juntos.',
+    subtitle: 'Escolha um ou vários. Se não tiver certeza, o mais próximo: definimos juntos.',
     detail: 'Ver detalhes',
-    add: 'Adicionar ao levantamento',
-    remove: 'Remover do levantamento',
-    selected: 'Selecionado',
-    includes: 'O que inclui',
-    needs: 'Para preparar a reunião',
-    close: 'Fechar',
+    add: 'Adicionar',
+    remove: 'Remover',
+    selected: 'Adicionado',
+    includes: 'Inclui',
+    needs: 'Para a reunião',
+    hide: 'Ocultar detalhes',
   },
   bar: {
     selected: (n) => (n === 1 ? '1 serviço selecionado' : `${n} serviços selecionados`),
@@ -168,14 +164,8 @@ const pt: Dictionary = {
     clear: 'Limpar',
   },
   approach: {
-    title: 'Primeiro o negócio, depois a tecnologia',
-    items: [
-      'Identificar falhas e pontos de perda',
-      'Aproveitar as vantagens que você já tem',
-      'Avaliar viabilidade e retorno antes de investir',
-      'Reduzir custos e proteger seus ativos',
-    ],
-    note: 'Com o seu levantamento preparo a reunião e proponho a alternativa mais conveniente para o seu caso.',
+    title: 'Em cada diagnóstico procuro',
+    items: ['Onde se perde tempo ou dinheiro', 'Que vantagens aproveitar', 'Se o investimento é viável', 'Como proteger seus ativos'],
   },
   survey: {
     step: (n, total) => `Etapa ${n} de ${total}`,
@@ -227,11 +217,12 @@ const en: Dictionary = {
   tagline: 'Innovation · Technology · Real solutions',
   nav: { services: 'Services', approach: 'Approach', contact: 'Contact', language: 'Language' },
   hero: {
-    eyebrow: 'Diagnosis · Design · Implementation',
-    title: 'IT solutions that start by understanding your business',
-    lead: 'Before proposing technology, I analyze how your organization works: where time or money is lost, which assets are worth protecting and what is feasible. Tell me about your situation in a few minutes and we will schedule a video call.',
-    cta: 'Start the assessment',
+    title: 'Technology designed around your business',
+    lead: 'First I understand how your organization works; then I design the solution. Tell me what you need and we will talk it through on a video call.',
+    cta: 'Tell me your case',
     secondary: 'See services',
+    center: 'Your business',
+    diagram: 'Diagram: your business at the center, connected to six services.',
   },
   emergency: {
     label: '24/7 Emergency',
@@ -240,21 +231,21 @@ const en: Dictionary = {
   how: {
     title: 'How it works',
     steps: [
-      { t: 'Choose the services', d: 'Pick one or several. Each explains what it includes and what is worth telling.' },
-      { t: 'Answer simple questions', d: 'No jargon, in the language of your business. It takes about 5 minutes.' },
-      { t: 'Send the summary via WhatsApp', d: 'Review the message, send it and we will schedule a video call to propose the best option.' },
+      { t: 'Choose services', d: 'One or several.' },
+      { t: 'Answer', d: 'Simple questions, about 5 minutes.' },
+      { t: 'Send via WhatsApp', d: 'We schedule a video call.' },
     ],
   },
   services: {
     title: 'Services',
-    subtitle: "Select what you need. If you're not sure, pick the closest one: we will define it together in the meeting.",
+    subtitle: "Pick one or several. Not sure? Pick the closest; we'll define it together.",
     detail: 'See details',
-    add: 'Add to assessment',
-    remove: 'Remove from assessment',
-    selected: 'Selected',
-    includes: 'What it includes',
-    needs: 'To prepare the meeting',
-    close: 'Close',
+    add: 'Add',
+    remove: 'Remove',
+    selected: 'Added',
+    includes: 'Includes',
+    needs: 'For the meeting',
+    hide: 'Hide details',
   },
   bar: {
     selected: (n) => (n === 1 ? '1 service selected' : `${n} services selected`),
@@ -262,14 +253,8 @@ const en: Dictionary = {
     clear: 'Clear',
   },
   approach: {
-    title: 'Business first, technology second',
-    items: [
-      'Find failures and loss points',
-      'Leverage the strengths you already have',
-      'Assess feasibility and return before investing',
-      'Cut costs and protect your assets',
-    ],
-    note: 'I use your assessment to prepare the meeting and propose the option that best fits your case.',
+    title: 'In every diagnosis I look for',
+    items: ['Where time or money is lost', 'Which strengths to build on', 'Whether the investment is viable', 'How to protect your assets'],
   },
   survey: {
     step: (n, total) => `Step ${n} of ${total}`,
