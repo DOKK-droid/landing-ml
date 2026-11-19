@@ -21,12 +21,6 @@ export function App({ locale }: { locale: Locale }) {
     document.getElementById('servicios')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [state.selected.length, actions]);
 
-  /** Desde el diagrama: lleva a la tarjeta del servicio y abre su detalle. */
-  const pickFromDiagram = useCallback((id: ServiceId) => {
-    setOpenId(id);
-    document.getElementById(`svc-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, []);
-
   return (
     <>
       <div className="backdrop" aria-hidden="true" />
@@ -36,7 +30,7 @@ export function App({ locale }: { locale: Locale }) {
         <SurveyView locale={locale} ctrl={ctrl} />
       ) : (
         <main id="contenido">
-          <Hero locale={locale} selected={state.selected} onStart={startOrPick} onPick={pickFromDiagram} />
+          <Hero locale={locale} onStart={startOrPick} />
           <ServicesSection locale={locale} selected={state.selected} openId={openId} onOpen={setOpenId} onToggle={actions.toggleService} />
           <Approach locale={locale} />
           <SelectionBar locale={locale} count={state.selected.length} onContinue={actions.start} onClear={actions.clearServices} />

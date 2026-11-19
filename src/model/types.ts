@@ -35,7 +35,7 @@ export interface Service {
   id: ServiceId;
   color: string;
   title: L10n;
-  /** Nombre corto para el diagrama del inicio. */
+  /** Nombre corto del servicio (uso libre en la vista). */
   short: L10n;
   /** Frase de una línea visible en la tarjeta. */
   tagline: L10n;

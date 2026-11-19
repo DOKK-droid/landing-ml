@@ -3,13 +3,11 @@
 import { SERVICES } from '@/model/catalog';
 import { DICTIONARIES } from '@/model/i18n';
 import type { Locale, ServiceId } from '@/model/types';
-import { HeroDiagram } from './HeroDiagram';
 import { ArrowIcon, CheckIcon, ServiceIcon } from './Icons';
+import { Logo } from './Logo';
 import { ServiceArt } from './ServiceArt';
 
-export function Hero({ locale, selected, onStart, onPick }: {
-  locale: Locale; selected: ServiceId[]; onStart: () => void; onPick: (id: ServiceId) => void;
-}) {
+export function Hero({ locale, onStart }: { locale: Locale; onStart: () => void }) {
   const d = DICTIONARIES[locale].hero;
   return (
     <section className="hero">
@@ -23,7 +21,7 @@ export function Hero({ locale, selected, onStart, onPick }: {
           </div>
           <HowItWorks locale={locale} />
         </div>
-        <HeroDiagram locale={locale} selected={selected} onPick={onPick} />
+        <Logo variant="hero" className="hero__logo" />
       </div>
     </section>
   );

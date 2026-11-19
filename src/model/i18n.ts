@@ -8,7 +8,7 @@ export interface Dictionary {
   role: string;
   tagline: string;
   nav: { services: string; approach: string; contact: string; language: string };
-  hero: { title: string; lead: string; cta: string; secondary: string; center: string; diagram: string };
+  hero: { title: string; lead: string; cta: string; secondary: string; };
   emergency: { label: string; message: string };
   how: { title: string; steps: { t: string; d: string }[] };
   services: {
@@ -43,8 +43,6 @@ const es: Dictionary = {
     lead: 'Primero entiendo cómo trabaja su organización; después diseño la solución. Cuénteme qué necesita y lo vemos por videollamada.',
     cta: 'Contar mi caso',
     secondary: 'Ver servicios',
-    center: 'Su negocio',
-    diagram: 'Diagrama: su negocio en el centro, conectado a seis servicios.',
   },
   emergency: {
     label: 'Emergencia 24/7',
@@ -132,8 +130,6 @@ const pt: Dictionary = {
     lead: 'Primeiro entendo como sua organização trabalha; depois projeto a solução. Conte o que precisa e conversamos por videochamada.',
     cta: 'Contar meu caso',
     secondary: 'Ver serviços',
-    center: 'Seu negócio',
-    diagram: 'Diagrama: seu negócio no centro, conectado a seis serviços.',
   },
   emergency: {
     label: 'Emergência 24/7',
@@ -221,8 +217,6 @@ const en: Dictionary = {
     lead: 'First I understand how your organization works; then I design the solution. Tell me what you need and we will talk it through on a video call.',
     cta: 'Tell me your case',
     secondary: 'See services',
-    center: 'Your business',
-    diagram: 'Diagram: your business at the center, connected to six services.',
   },
   emergency: {
     label: '24/7 Emergency',

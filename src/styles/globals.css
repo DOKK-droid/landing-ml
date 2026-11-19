@@ -117,28 +117,16 @@ button { font: inherit; color: inherit; }
   border: 1.5px solid var(--accent); color: var(--accent); font: 700 13px/1 var(--font);
 }
 
-/* Diagrama de arquitectura */
-.diagram { margin: 0; width: 100%; max-width: 560px; justify-self: center; }
-.diagram svg { display: block; width: 100%; height: auto; overflow: visible; font-family: var(--font); }
-.diagram__orbit { fill: none; stroke: var(--line-2); stroke-width: 1; stroke-dasharray: 2 7; }
-.diagram__dim { fill: none; stroke: var(--line-2); stroke-width: 1; }
-.diagram__link {
-  fill: none; stroke: var(--c); stroke-width: 1.6; opacity: .6;
-  stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw .9s var(--ease) forwards; animation-delay: calc(.25s + var(--i) * .1s);
-  transition: opacity .2s ease, stroke-width .2s ease;
-}
-.diagram__link.is-on { opacity: 1; stroke-width: 2.6; }
-@keyframes draw { to { stroke-dashoffset: 0; } }
-.diagram__core rect { fill: rgba(255, 209, 102, 0.14); stroke: var(--accent); stroke-width: 1.6; }
-.diagram__core text { fill: var(--paper); font-size: 18px; font-weight: 700; font-stretch: 115%; }
-.diagram__node { cursor: pointer; opacity: 0; animation: appear .5s ease forwards; animation-delay: calc(.6s + var(--i) * .1s); }
-.diagram__node rect { fill: rgba(9, 28, 54, 0.92); stroke: var(--line-2); stroke-width: 1.2; transition: fill .2s ease, stroke .2s ease; }
-.diagram__node text { fill: var(--paper); font-size: 14.5px; font-weight: 600; }
-.diagram__icon { stroke: var(--c); }
-.diagram__node:hover rect, .diagram__node:focus-visible rect { stroke: var(--c); fill: rgba(16, 42, 80, 1); }
-.diagram__node.is-on rect { stroke: var(--c); stroke-width: 2; fill: color-mix(in srgb, var(--c) 18%, #0b2140); }
-.diagram__node:focus-visible { outline: none; }
-@keyframes appear { to { opacity: 1; } }
+/* Logo con profundidad (CSS 3D, sin WebGL) */
+.hero__logo { order: -1; justify-self: center; width: min(58vw, 250px); }
+.logo3d { position: relative; aspect-ratio: 1; perspective: 900px; }
+.logo3d > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.logo3d__ring { animation: ring-spin 28s linear infinite; transform-origin: 50% 50%; }
+.logo3d__arcs { animation: arcs-tilt 14s ease-in-out infinite; transform-origin: 50% 50%; }
+.logo3d__mark { animation: mark-float 7s ease-in-out infinite; transform-style: preserve-3d; filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.6)); }
+@keyframes ring-spin { to { transform: rotate(360deg); } }
+@keyframes arcs-tilt { 0%, 100% { transform: rotateX(0deg) rotateZ(0deg); } 50% { transform: rotateX(58deg) rotateZ(-24deg); } }
+@keyframes mark-float { 0%, 100% { transform: rotateY(-14deg) rotateX(4deg) translateY(0); } 50% { transform: rotateY(14deg) rotateX(-4deg) translateY(-6px); } }
 
 /* ---------------- Secciones ---------------- */
 .section { padding: 64px 0; }
@@ -320,7 +308,6 @@ button { font: inherit; color: inherit; }
   .emergency { right: 12px; padding: 0 12px; min-height: 40px; font-size: 13px; }
   .emergency__full { display: none; }
   .emergency__short { display: inline; }
-  .diagram { margin: 0 -8px; width: calc(100% + 16px); }
 }
 @media (min-width: 640px) {
   .sheets { grid-template-columns: repeat(2, 1fr); }
@@ -337,7 +324,8 @@ button { font: inherit; color: inherit; }
   :root { --header-h: 72px; }
   .header__nav { display: flex; }
   .hero { padding: 72px 0 32px; min-height: calc(100vh - var(--header-h)); display: flex; align-items: center; }
-  .hero__inner { grid-template-columns: 1fr 1.05fr; gap: 48px; }
+  .hero__inner { grid-template-columns: 1.1fr 1fr; gap: 56px; }
+  .hero__logo { order: 0; width: min(100%, 440px); }
   .steps { grid-template-columns: 1fr; gap: 12px; }
   .sheets { grid-template-columns: repeat(3, 1fr); }
   .approach .container { grid-template-columns: auto 1fr; align-items: center; gap: 40px; }
@@ -350,6 +338,4 @@ button { font: inherit; color: inherit; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
-  .diagram__link { stroke-dashoffset: 0; }
-  .diagram__node { opacity: 1; }
 }
