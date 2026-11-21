@@ -1,23 +1,31 @@
 /* ============================================================
  * CONTROLADOR — Máquina de estados del relevamiento (pura, testeable).
+ * El relevamiento es una conversación: una pregunta por vez. `cursor` es la posición de la pregunta actual
+ * en la lista aplanada de preguntas (ver model/flow.ts).
  *
- *   landing ──START──▶ survey(step 0..n-1) ──NEXT(último)──▶ review ──SENT──▶ sent
- *      ▲                  │ BACK(step 0)                       │ EDIT
- *      └──────────────────┘◀───────────────────────────────────┘
+ *   landing ──START──▶ survey(cursor 0..n-1) ──NEXT(última)──▶ review ──SENT──▶ sent
+ *      ▲                  │ BACK(cursor 0)                       │ BACK
+ *      └──────────────────┘◀─────────────────────────────────────┘
  * ============================================================ */
+import { site } from '@/config/site';
 import { buildSections, isServiceId } from '@/model/catalog';
-import { hasErrors, validateSection } from '@/model/validation';
-import type { AnswerValue, Answers, Errors, ServiceId } from '@/model/types';
+import { buildFlow, firstStepOfSection } from '@/model/flow';
+import { isValidReference } from '@/model/message';
+import { normalizeOrigin, validateQuestion } from '@/model/validation';
+import type { AnswerValue, Answers, Errors, Section, ServiceId } from '@/model/types';
 
 export type Phase = 'landing' | 'survey' | 'review' | 'sent';
 
 export interface SurveyState {
   phase: Phase;
   selected: ServiceId[];
-  step: number;
+  /** Pregunta actual (posición en `buildFlow`). */
+  cursor: number;
   answers: Answers;
   errors: Errors;
   reference: string;
+  /** Origen de la visita (p. ej. "tarjeta" desde el QR). Se conserva al cambiar de idioma. */
+  origin: string;
   /** Texto editado a mano en la revisión; null = se genera desde las respuestas. */
   draft: string | null;
 }
@@ -27,10 +35,11 @@ export type SurveyAction =
   | { type: 'SET_SERVICE'; id: ServiceId; selected: boolean }
   | { type: 'CLEAR_SERVICES' }
   | { type: 'START'; reference: string }
+  | { type: 'SET_ORIGIN'; origin: string }
   | { type: 'SET_ANSWER'; id: string; value: AnswerValue }
   | { type: 'NEXT' }
   | { type: 'BACK' }
-  | { type: 'GO_TO_STEP'; step: number }
+  | { type: 'GO_TO_SECTION'; section: number }
   | { type: 'EXIT' }
   | { type: 'SET_DRAFT'; text: string }
   | { type: 'SENT' }
@@ -40,10 +49,11 @@ export type SurveyAction =
 export const initialState: SurveyState = {
   phase: 'landing',
   selected: [],
-  step: 0,
+  cursor: 0,
   answers: {},
   errors: {},
   reference: '',
+  origin: '',
   draft: null,
 };
 
@@ -69,9 +79,15 @@ export function surveyReducer(state: SurveyState, action: SurveyAction): SurveyS
     case 'CLEAR_SERVICES':
       return { ...state, selected: [], draft: null };
 
+    case 'SET_ORIGIN': {
+      // Gana el primero: si la visita ya tenía origen, un enlace posterior no lo pisa.
+      const origin = state.origin || normalizeOrigin(action.origin);
+      return origin === state.origin ? state : { ...state, origin };
+    }
+
     case 'START':
       if (!state.selected.length) return state;
-      return { ...state, phase: 'survey', step: 0, errors: {}, reference: state.reference || action.reference };
+      return { ...state, phase: 'survey', cursor: 0, errors: {}, reference: state.reference || action.reference };
 
     case 'SET_ANSWER':
       return {
@@ -82,24 +98,32 @@ export function surveyReducer(state: SurveyState, action: SurveyAction): SurveyS
       };
 
     case 'NEXT': {
-      const sections = buildSections(state.selected);
-      const section = sections[state.step];
-      if (!section) return state;
-      const errors = validateSection(section, state.answers);
-      if (hasErrors(errors)) return { ...state, errors };
-      const isLast = state.step >= sections.length - 1;
-      return isLast ? { ...state, errors: {}, phase: 'review' } : { ...state, errors: {}, step: state.step + 1 };
+      // Avanza una pregunta. Una obligatoria sin responder no deja pasar; una opcional sin responder se omite.
+      const flow = buildFlow(buildSections(state.selected));
+      const step = flow[state.cursor];
+      if (!step || state.phase !== 'survey') return state;
+      const errors = validateQuestion(step.question, state.answers);
+      if (Object.keys(errors).length) return { ...state, errors };
+      const isLast = state.cursor >= flow.length - 1;
+      return isLast ? { ...state, errors: {}, phase: 'review' } : { ...state, errors: {}, cursor: state.cursor + 1 };
     }
 
-    case 'BACK':
-      if (state.phase === 'review') return { ...state, phase: 'survey' };
-      if (state.step === 0) return { ...state, phase: 'landing', errors: {} };
-      return { ...state, step: state.step - 1, errors: {} };
+    case 'BACK': {
+      if (state.phase === 'review') {
+        const last = buildFlow(buildSections(state.selected)).length - 1;
+        return { ...state, phase: 'survey', cursor: Math.max(last, 0), errors: {} };
+      }
+      if (state.cursor === 0) return { ...state, phase: 'landing', errors: {} };
+      return { ...state, cursor: state.cursor - 1, errors: {} };
+    }
 
-    case 'GO_TO_STEP': {
-      const total = buildSections(state.selected).length;
-      const step = Math.min(Math.max(action.step, 0), total - 1);
-      return { ...state, phase: 'survey', step, errors: {} };
+    case 'GO_TO_SECTION': {
+      // Solo hacia atrás (o hasta la sección actual): saltar adelante dejaría obligatorias sin responder.
+      const flow = buildFlow(buildSections(state.selected));
+      const current = state.phase === 'review' ? Infinity : (flow[state.cursor]?.sectionIndex ?? 0);
+      const target = firstStepOfSection(flow, action.section);
+      if (target < 0 || action.section > current) return state;
+      return { ...state, phase: 'survey', cursor: target, errors: {} };
     }
 
     case 'EXIT':
@@ -112,7 +136,7 @@ export function surveyReducer(state: SurveyState, action: SurveyAction): SurveyS
       return { ...state, phase: 'sent' };
 
     case 'RESTART':
-      return initialState;
+      return { ...initialState, origin: state.origin };
 
     case 'HYDRATE':
       return sanitize(action.state);
@@ -122,21 +146,56 @@ export function surveyReducer(state: SurveyState, action: SurveyAction): SurveyS
   }
 }
 
-/** Valida un estado recuperado de sessionStorage (puede venir de otra versión). */
+/** Largo máximo de un id de opción guardado y del mensaje editado a mano en la revisión. */
+const MAX_OPTION_ID = 64;
+const MAX_DRAFT = 20_000;
+
+/**
+ * Deja solo lo que la interfaz podría haber guardado: respuestas de preguntas que existen en el recorrido elegido,
+ * del tipo que corresponde y dentro de los límites de largo. Lo demás se descarta, porque `sessionStorage` puede
+ * haber sido editado a mano o venir de otra versión, y cada valor termina en pantalla y en el mensaje.
+ */
+function sanitizeAnswers(raw: unknown, sections: Section[]): Answers {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const source = raw as Record<string, unknown>;
+  const answers: Answers = {};
+  for (const question of sections.flatMap((section) => section.questions)) {
+    const value = source[question.id];
+    if (question.type === 'multi') {
+      if (!Array.isArray(value)) continue;
+      const ids = [...new Set(value.filter((id): id is string => typeof id === 'string'))]
+        .map((id) => id.slice(0, MAX_OPTION_ID))
+        .slice(0, question.options?.length ?? 0);
+      if (ids.length) answers[question.id] = ids;
+    } else if (typeof value === 'string') {
+      const max = question.type === 'textarea' ? site.maxTextLength : question.type === 'text' ? site.maxLineLength : MAX_OPTION_ID;
+      answers[question.id] = value.slice(0, max);
+    }
+  }
+  return answers;
+}
+
+/** Valida un estado recuperado de sessionStorage (puede venir de otra versión o haber sido manipulado). */
 export function sanitize(raw: unknown): SurveyState {
   if (!raw || typeof raw !== 'object') return initialState;
-  const s = raw as Partial<SurveyState>;
-  const selected = Array.isArray(s.selected) ? s.selected.filter((id): id is ServiceId => typeof id === 'string' && isServiceId(id)) : [];
-  const phase: Phase = s.phase && ['landing', 'survey', 'review', 'sent'].includes(s.phase) ? s.phase : 'landing';
-  const total = buildSections(selected).length;
-  const step = typeof s.step === 'number' ? Math.min(Math.max(s.step, 0), total - 1) : 0;
+  const s = raw as Partial<Record<keyof SurveyState, unknown>>;
+  const selected = Array.isArray(s.selected)
+    ? [...new Set(s.selected.filter((id): id is ServiceId => typeof id === 'string' && isServiceId(id)))]
+    : [];
+  const sections = buildSections(selected);
+  const total = buildFlow(sections).length;
+  const cursor = typeof s.cursor === 'number' && Number.isFinite(s.cursor) ? Math.min(Math.max(Math.trunc(s.cursor), 0), total - 1) : 0;
+  const reference = isValidReference(s.reference) ? s.reference : '';
+  const stored = typeof s.phase === 'string' && ['landing', 'survey', 'review', 'sent'].includes(s.phase) ? (s.phase as Phase) : 'landing';
   return {
-    phase: selected.length ? phase : 'landing',
+    // Sin servicios o sin una referencia válida no hay relevamiento que retomar: START siempre asigna una.
+    phase: selected.length && reference ? stored : 'landing',
     selected,
-    step,
-    answers: s.answers && typeof s.answers === 'object' ? (s.answers as Answers) : {},
+    cursor,
+    answers: sanitizeAnswers(s.answers, sections),
     errors: {},
-    reference: typeof s.reference === 'string' ? s.reference : '',
-    draft: typeof s.draft === 'string' ? s.draft : null,
+    reference,
+    origin: normalizeOrigin(s.origin),
+    draft: typeof s.draft === 'string' ? s.draft.slice(0, MAX_DRAFT) : null,
   };
 }

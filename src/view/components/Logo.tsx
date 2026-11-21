@@ -1,11 +1,25 @@
+'use client';
 /* Monograma ML de la tarjeta ejecutiva, en SVG.
- * `variant="hero"` agrega anillo y arcos con rotación 3D por CSS (sin WebGL),
- * que se desactiva con prefers-reduced-motion. */
-import { useId } from 'react';
+ * `variant="hero"` lo rodea de una escena 3D (globo, aros giratorios y arcos orbitales) dibujada en canvas por
+ * view/logoScene.ts, sin WebGL. La marca va entre dos canvas —lo que está detrás de ella y lo que está delante—
+ * para que los aros pasen por los dos lados. La escena se pausa fuera de pantalla y con
+ * prefers-reduced-motion queda un solo cuadro en reposo. */
+import { memo, useEffect, useId, useRef } from 'react';
+import { startLogoScene } from '../logoScene';
 
-export function Logo({ variant = 'mark', className }: { variant?: 'mark' | 'hero'; className?: string }) {
+export const Logo = memo(function Logo({ variant = 'mark', className }: { variant?: 'mark' | 'hero'; className?: string }) {
   const uid = useId().replace(/:/g, '');
   const id = (n: string) => `${n}-${uid}`;
+  const rootRef = useRef<HTMLDivElement>(null);
+  const backRef = useRef<HTMLCanvasElement>(null);
+  const markRef = useRef<SVGSVGElement>(null);
+  const frontRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const root = rootRef.current, back = backRef.current, mark = markRef.current, front = frontRef.current;
+    if (!root || !back || !mark || !front) return;
+    return startLogoScene(root, back, front, mark);
+  }, []);
 
   const defs = (
     <defs>
@@ -24,14 +38,11 @@ export function Logo({ variant = 'mark', className }: { variant?: 'mark' | 'hero
       <linearGradient id={id('gf')} gradientUnits="userSpaceOnUse" x1="83" y1="0" x2="146" y2="0">
         <stop offset="0" stopColor="#0086cf" /><stop offset=".35" stopColor="#00c2f2" /><stop offset="1" stopColor="#7df3ff" />
       </linearGradient>
-      <linearGradient id={id('ring')} gradientUnits="userSpaceOnUse" x1="-34" y1="-46" x2="158" y2="146">
-        <stop offset="0" stopColor="#f4f7fb" /><stop offset=".45" stopColor="#8e99aa" /><stop offset=".7" stopColor="#dfe5ee" /><stop offset="1" stopColor="#6b7687" />
-      </linearGradient>
-      <linearGradient id={id('arc')} gradientUnits="userSpaceOnUse" x1="-30" y1="-40" x2="150" y2="150">
-        <stop offset="0" stopColor="#ff3ea5" /><stop offset=".45" stopColor="#8a3cff" /><stop offset="1" stopColor="#00e0ff" />
-      </linearGradient>
       <radialGradient id={id('halo')} gradientUnits="userSpaceOnUse" cx="62" cy="50" r="112">
         <stop offset="0" stopColor="#6a3cff" stopOpacity=".42" /><stop offset=".55" stopColor="#2b5cff" stopOpacity=".16" /><stop offset="1" stopColor="#2b5cff" stopOpacity="0" />
+      </radialGradient>
+      <radialGradient id={id('shadow')} cx=".5" cy=".5" r=".5">
+        <stop offset="0" stopColor="#000" stopOpacity=".55" /><stop offset="1" stopColor="#000" stopOpacity="0" />
       </radialGradient>
       <filter id={id('glow')} x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="4.2" /></filter>
     </defs>
@@ -60,32 +71,20 @@ export function Logo({ variant = 'mark', className }: { variant?: 'mark' | 'hero
   }
 
   return (
-    <div className={`logo3d ${className ?? ''}`} aria-hidden="true">
-      <svg className="logo3d__halo" viewBox="-52 -64 228 228">
-        {defs}
-        <circle cx="62" cy="50" r="112" fill={`url(#${id('halo')})`} />
-        <g fill="none" stroke="#8f9dff" strokeWidth=".6" opacity=".35">
-          <circle cx="62" cy="50" r="84" />
-          <ellipse cx="62" cy="50" rx="28" ry="84" />
-          <ellipse cx="62" cy="50" rx="56" ry="84" />
-        </g>
-      </svg>
-      <svg className="logo3d__ring" viewBox="-52 -64 228 228">
-        <path d="M135.54 111.71A96 96 0 1 1 155.54 71.60" fill="none" stroke={`url(#${id('ring')})`} strokeWidth="2.4" strokeLinecap="round" />
-        <circle cx="62" cy="50" r="88.5" fill="none" stroke="#9fb4cc" strokeWidth=".5" strokeDasharray="1.2 3.6" opacity=".55" />
-      </svg>
-      <svg className="logo3d__arcs" viewBox="-52 -64 228 228">
-        <g fill="none" stroke={`url(#${id('arc')})`} strokeLinecap="round" strokeWidth="1.6">
-          <path d="M-27.63 101.75A103.5 103.5 0 0 1 47.60 -52.49" />
-          <path d="M133.90 124.45A103.5 103.5 0 0 1 83.52 151.24" />
-        </g>
-        <circle cx="-27.63" cy="101.75" r="2.4" fill="#b99cff" />
-        <circle cx="47.60" cy="-52.49" r="2.4" fill="#ff8fcb" />
-        <circle cx="133.90" cy="124.45" r="2.4" fill="#7ff2ff" />
-      </svg>
-      <svg className="logo3d__mark" viewBox="-52 -64 228 228">
-        {monogram}
-      </svg>
+    // El contenedor exterior lleva la entrada (opacity) para no afectar a la perspectiva de la marca.
+    <div className={`logo3d-wrap ${className ?? ''}`} aria-hidden="true">
+      <div ref={rootRef} className="logo3d">
+        <svg className="logo3d__halo" viewBox="-52 -64 228 228">
+          {defs}
+          <circle cx="62" cy="50" r="112" fill={`url(#${id('halo')})`} />
+          <ellipse cx="73" cy="122" rx="58" ry="8" fill={`url(#${id('shadow')})`} />
+        </svg>
+        <canvas ref={backRef} className="logo3d__cv" />
+        <svg ref={markRef} className="logo3d__mark" viewBox="-52 -64 228 228">
+          {monogram}
+        </svg>
+        <canvas ref={frontRef} className="logo3d__cv" />
+      </div>
     </div>
   );
-}
+});

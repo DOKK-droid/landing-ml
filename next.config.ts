@@ -9,6 +9,9 @@ const nextConfig: NextConfig = {
   trailingSlash: true,
   images: { unoptimized: true },
   reactStrictMode: true,
+  // Identificador de build estable (el commit, o "local"): sin esto Next genera uno al azar en cada build y
+  // el manifiesto de integridad cambiaría aunque el código sea el mismo. Ver docs/SEGURIDAD.md.
+  generateBuildId: async () => process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.GITHUB_SHA ?? 'local',
 };
 
 export default nextConfig;

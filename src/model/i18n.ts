@@ -11,6 +11,16 @@ export interface Dictionary {
   hero: { eyebrow: string; title: string; lead: string; cta: string; secondary: string };
   concept: { title: string; lead: string; center: string; diagram: string };
   emergency: { label: string; message: string };
+  consulta: {
+    badge: string; title: (minutes: number) => string; lead: string; billing: (minutes: number) => string;
+    per: (minutes: number) => string; perShort: (minutes: number) => string;
+    off: (percent: number) => string; srPrice: (price: string, original: string, minutes: number) => string;
+    examples: string; was: string; support: string; supportLink: string; cta: string; hero: string;
+  };
+  preview: {
+    title: string; hint: string; keyData: (done: number, total: number) => string; keyDone: string;
+    pending: string; optional: string;
+  };
   how: { title: string; steps: { t: string; d: string }[] };
   services: {
     title: string; subtitle: string; detail: string; add: string; remove: string; selected: string;
@@ -21,13 +31,18 @@ export interface Dictionary {
   survey: {
     step: (n: number, total: number) => string; back: string; next: string; review: string;
     required: string; optional: string; fieldRequired: string; chooseOne: string; chooseAny: string; exit: string;
-    fixErrors: string;
+    section: (n: number, total: number) => string; question: (n: number, total: number) => string;
+    skip: string; send: string; answerPlaceholder: string; enterHint: string; preparing: string;
   };
   review: {
     title: string; lead: string; send: string; copy: string; copied: string; edit: string;
     sent: string; restart: string; tooLong: string;
   };
-  message: { greeting: string; title: string; ref: string; services: string; footer: string; closing: string };
+  message: {
+    greeting: string; greetingNamed: (name: string) => string; title: string; ref: string; services: string;
+    consult: string; consultValue: (minutes: number, price: string, original: string) => string;
+    origin: string; footer: string; closing: string;
+  };
   footer: { privacy: string; rights: (year: number) => string; whatsapp: string; email: string; linkedin: string };
 }
 
@@ -54,7 +69,31 @@ const es: Dictionary = {
   },
   emergency: {
     label: 'Emergencia 24/7',
-    message: '🚨 *EMERGENCIA 24/7*\nNecesito asistencia técnica urgente.\n\n• Nombre:\n• Empresa / lugar:\n• Qué está pasando:',
+    message: '🚨 *EMERGENCIA 24/7*\nNecesito asistencia técnica urgente.\n\n• Nombre:\n• Empresa / lugar:\n• Qué está pasando:\n• Remoto o presencial:',
+  },
+  consulta: {
+    badge: 'Oferta',
+    title: (m) => `Relevamiento técnico por bloques de ${m} minutos`,
+    lead: 'Toda asesoría empieza con un relevamiento técnico por videollamada: usted cuenta su situación y definimos juntos los próximos pasos. Vale para software, sistemas, gestión, infraestructura o inteligencia artificial.',
+    billing: (m) => `El precio es por cada ${m} minutos de reunión: si dura más, el total se calcula por bloques.`,
+    per: (m) => `cada ${m} min de relevamiento técnico`,
+    perShort: (m) => `cada ${m} min`,
+    off: (p) => `−${p} %`,
+    srPrice: (price, original, m) => `Precio de oferta: ${price} cada ${m} minutos de relevamiento técnico. Precio original: ${original}.`,
+    examples: 'Costo total según la duración de la reunión',
+    was: 'antes',
+    support: 'Para emergencias, reparación o mantenimiento de equipos, en remoto o presencial, está Soporte 24/7.',
+    supportLink: 'Ver Soporte 24/7',
+    cta: 'Pedir mi consulta',
+    hero: 'Relevamiento técnico',
+  },
+  preview: {
+    title: 'Vista previa del mensaje',
+    hint: 'Así va quedando lo que recibirá Mariano. Lo revisa y lo puede editar antes de enviarlo.',
+    keyData: (d, t) => `Datos clave: ${d} de ${t}`,
+    keyDone: 'Datos clave completos',
+    pending: 'pendiente',
+    optional: 'opcional',
   },
   how: {
     title: 'Cómo funciona',
@@ -95,7 +134,13 @@ const es: Dictionary = {
     chooseOne: 'Elija una opción.',
     chooseAny: 'Puede elegir varias.',
     exit: 'Volver al inicio',
-    fixErrors: 'Faltan datos obligatorios en este paso.',
+    section: (n, total) => `Sección ${n} de ${total}`,
+    question: (n, total) => `Pregunta ${n} de ${total}`,
+    skip: 'Omitir',
+    send: 'Enviar respuesta',
+    answerPlaceholder: 'Escriba su respuesta…',
+    enterHint: 'Enter envía · Mayús+Enter agrega una línea',
+    preparing: 'Preparando la siguiente pregunta',
   },
   review: {
     title: 'Revise su mensaje',
@@ -110,9 +155,13 @@ const es: Dictionary = {
   },
   message: {
     greeting: 'Hola Mariano, quiero hacer una consulta.',
+    greetingNamed: (n) => `Hola Mariano, soy ${n}. Quiero hacer una consulta.`,
     title: 'RELEVAMIENTO INICIAL',
     ref: 'Ref.',
     services: 'Servicios de interés',
+    consult: 'Consulta',
+    consultValue: (m, price, original) => `${price} cada ${m} min de relevamiento técnico (oferta; precio original ${original})`,
+    origin: 'origen',
     footer: 'Enviado desde',
     closing: 'Quedo a la espera para coordinar la videollamada.',
   },
@@ -148,7 +197,31 @@ const pt: Dictionary = {
   },
   emergency: {
     label: 'Emergência 24/7',
-    message: '🚨 *EMERGÊNCIA 24/7*\nPreciso de assistência técnica urgente.\n\n• Nome:\n• Empresa / local:\n• O que está acontecendo:',
+    message: '🚨 *EMERGÊNCIA 24/7*\nPreciso de assistência técnica urgente.\n\n• Nome:\n• Empresa / local:\n• O que está acontecendo:\n• Remoto ou presencial:',
+  },
+  consulta: {
+    badge: 'Oferta',
+    title: (m) => `Levantamento técnico em blocos de ${m} minutos`,
+    lead: 'Toda assessoria começa com um levantamento técnico por videochamada: você conta sua situação e definimos juntos os próximos passos. Vale para software, sistemas, gestão, infraestrutura ou inteligência artificial.',
+    billing: (m) => `O preço é a cada ${m} minutos de reunião: se durar mais, o total é calculado por blocos.`,
+    per: (m) => `a cada ${m} min de levantamento técnico`,
+    perShort: (m) => `a cada ${m} min`,
+    off: (p) => `−${p} %`,
+    srPrice: (price, original, m) => `Preço da oferta: ${price} a cada ${m} minutos de levantamento técnico. Preço original: ${original}.`,
+    examples: 'Custo total conforme a duração da reunião',
+    was: 'antes',
+    support: 'Para emergências, conserto ou manutenção de equipamentos, remoto ou presencial, há o Suporte 24/7.',
+    supportLink: 'Ver Suporte 24/7',
+    cta: 'Pedir minha consulta',
+    hero: 'Levantamento técnico',
+  },
+  preview: {
+    title: 'Prévia da mensagem',
+    hint: 'É assim que a mensagem que o Mariano receberá vai ficando. Você revisa e pode editar antes de enviar.',
+    keyData: (d, t) => `Dados-chave: ${d} de ${t}`,
+    keyDone: 'Dados-chave completos',
+    pending: 'pendente',
+    optional: 'opcional',
   },
   how: {
     title: 'Como funciona',
@@ -189,7 +262,13 @@ const pt: Dictionary = {
     chooseOne: 'Escolha uma opção.',
     chooseAny: 'Pode escolher várias.',
     exit: 'Voltar ao início',
-    fixErrors: 'Faltam dados obrigatórios nesta etapa.',
+    section: (n, total) => `Seção ${n} de ${total}`,
+    question: (n, total) => `Pergunta ${n} de ${total}`,
+    skip: 'Pular',
+    send: 'Enviar resposta',
+    answerPlaceholder: 'Escreva sua resposta…',
+    enterHint: 'Enter envia · Shift+Enter nova linha',
+    preparing: 'Preparando a próxima pergunta',
   },
   review: {
     title: 'Revise sua mensagem',
@@ -204,9 +283,13 @@ const pt: Dictionary = {
   },
   message: {
     greeting: 'Olá Mariano, gostaria de fazer uma consulta.',
+    greetingNamed: (n) => `Olá Mariano, sou ${n}. Gostaria de fazer uma consulta.`,
     title: 'LEVANTAMENTO INICIAL',
     ref: 'Ref.',
     services: 'Serviços de interesse',
+    consult: 'Consulta',
+    consultValue: (m, price, original) => `${price} a cada ${m} min de levantamento técnico (oferta; preço original ${original})`,
+    origin: 'origem',
     footer: 'Enviado de',
     closing: 'Aguardo para agendarmos a videochamada.',
   },
@@ -242,7 +325,31 @@ const en: Dictionary = {
   },
   emergency: {
     label: '24/7 Emergency',
-    message: '🚨 *24/7 EMERGENCY*\nI need urgent technical assistance.\n\n• Name:\n• Company / location:\n• What is happening:',
+    message: '🚨 *24/7 EMERGENCY*\nI need urgent technical assistance.\n\n• Name:\n• Company / location:\n• What is happening:\n• Remote or on-site:',
+  },
+  consulta: {
+    badge: 'Offer',
+    title: (m) => `Technical assessment in ${m}-minute blocks`,
+    lead: 'Every advisory engagement starts with a technical assessment by video call: you describe your situation and we define the next steps together. It covers software, systems, management, infrastructure or artificial intelligence.',
+    billing: (m) => `The price applies to every ${m} minutes of meeting: if it runs longer, the total is calculated by blocks.`,
+    per: (m) => `per ${m} min of technical assessment`,
+    perShort: (m) => `per ${m} min`,
+    off: (p) => `−${p}%`,
+    srPrice: (price, original, m) => `Offer price: ${price} per ${m} minutes of technical assessment. Original price: ${original}.`,
+    examples: 'Total cost by meeting length',
+    was: 'was',
+    support: 'For emergencies, repair or maintenance of equipment, remote or on-site, there is 24/7 Support.',
+    supportLink: 'See 24/7 Support',
+    cta: 'Request my consultation',
+    hero: 'Technical assessment',
+  },
+  preview: {
+    title: 'Message preview',
+    hint: 'This is how the message Mariano will receive is taking shape. You can review and edit it before sending.',
+    keyData: (d, t) => `Key details: ${d} of ${t}`,
+    keyDone: 'Key details complete',
+    pending: 'pending',
+    optional: 'optional',
   },
   how: {
     title: 'How it works',
@@ -283,7 +390,13 @@ const en: Dictionary = {
     chooseOne: 'Choose one option.',
     chooseAny: 'You can choose several.',
     exit: 'Back to home',
-    fixErrors: 'Some required fields in this step are missing.',
+    section: (n, total) => `Section ${n} of ${total}`,
+    question: (n, total) => `Question ${n} of ${total}`,
+    skip: 'Skip',
+    send: 'Send answer',
+    answerPlaceholder: 'Type your answer…',
+    enterHint: 'Enter to send · Shift+Enter for a new line',
+    preparing: 'Preparing the next question',
   },
   review: {
     title: 'Review your message',
@@ -298,9 +411,13 @@ const en: Dictionary = {
   },
   message: {
     greeting: "Hi Mariano, I'd like to make an inquiry.",
+    greetingNamed: (n) => `Hi Mariano, I'm ${n}. I'd like to make an inquiry.`,
     title: 'INITIAL ASSESSMENT',
     ref: 'Ref.',
     services: 'Services of interest',
+    consult: 'Consultation',
+    consultValue: (m, price, original) => `${price} per ${m} min of technical assessment (offer; original price ${original})`,
+    origin: 'source',
     footer: 'Sent from',
     closing: 'Looking forward to scheduling the video call.',
   },

@@ -1,5 +1,6 @@
 /* Ilustraciones técnicas propias de cada servicio (estilo plano de arquitectura).
  * Clases: .a-l línea base · .a-a acento del servicio · .a-f relleno tenue · .a-d cota punteada */
+import { memo } from 'react';
 import type { ServiceId } from '@/model/types';
 
 const ART: Record<ServiceId, React.ReactNode> = {
@@ -111,10 +112,11 @@ const ART: Record<ServiceId, React.ReactNode> = {
   ),
 };
 
-export function ServiceArt({ id }: { id: ServiceId }) {
+/** Memoizado: las seis láminas no cambian al marcar o desmarcar servicios. */
+export const ServiceArt = memo(function ServiceArt({ id }: { id: ServiceId }) {
   return (
     <svg className="art" viewBox="0 0 320 200" aria-hidden="true" fill="none" strokeLinecap="round" strokeLinejoin="round">
       {ART[id]}
     </svg>
   );
-}
+});

@@ -21,7 +21,9 @@ src/
 │  ├─ types.ts               Locale, Service, Section, Question, Answers
 │  ├─ catalog.ts             6 servicios + perfil + cierre (preguntas trilingües)
 │  ├─ i18n.ts                Textos de interfaz por idioma
-│  ├─ validation.ts          Reglas de obligatoriedad
+│  ├─ flow.ts                Aplana las secciones en una lista de preguntas (una por vez)
+│  ├─ offer.ts               Oferta del relevamiento técnico: precio por bloque, costo total
+│  ├─ validation.ts          Reglas de obligatoriedad (por pregunta) y avance de datos clave
 │  └─ message.ts             buildMessage · buildWhatsAppUrl · createReference
 ├─ controller/               CONTROLADOR
 │  ├─ surveyReducer.ts       Máquina de estados pura (testeada)
@@ -29,8 +31,14 @@ src/
 ├─ view/                     VISTA: componentes sin lógica de negocio
 │  ├─ App.tsx                Elige landing o relevamiento según la fase
 │  ├─ components/            Layout, Sections, Logo, Icons
-│  └─ survey/                SurveyView, Field (control genérico por tipo)
-└─ app/                      Rutas Next (sólo composición)
+│  └─ survey/                SurveyView · Chat (banda + vista previa + respuesta) · Composer (pregunta y chips o texto) · Preview
+├─ app/                      Rutas Next (sólo composición)
+└─ (raíz)
+   ├─ scripts/               Endurecimiento posterior al build y verificador (ver SEGURIDAD.md)
+   ├─ .github/               CI, verificación programada del sitio publicado y Dependabot
+   └─ vercel.json            Encabezados de seguridad de producción
+
+La arquitectura futura (Cloudflare, Frappe/CRM) está en INTEGRACIONES.md.
 ```
 
 ### Diagrama de clases (modelo)
@@ -66,7 +74,7 @@ classDiagram
   class SurveyState {
     +Phase phase
     +ServiceId[] selected
-    +int step
+    +int cursor
     +Answers answers
     +Errors errors
     +string reference
@@ -85,9 +93,9 @@ classDiagram
 stateDiagram-v2
   [*] --> landing
   landing --> survey : START [selected ≥ 1]
-  survey --> survey : NEXT [válido y no es el último] / BACK
-  survey --> landing : BACK [paso 0] / EXIT
-  survey --> review : NEXT [último paso válido]
+  survey --> survey : NEXT [pregunta válida y no es la última] / BACK
+  survey --> landing : BACK [primera pregunta] / EXIT
+  survey --> review : NEXT [última pregunta válida]
   review --> survey : BACK (modificar respuestas)
   review --> sent : abrir WhatsApp
   sent --> landing : RESTART

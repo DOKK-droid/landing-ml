@@ -1,0 +1,95 @@
+# Vigilancia del sitio publicado. Cada 6 horas:
+#   1. lee qué commit está publicado (el identificador de build que el sitio informa),
+#   2. reconstruye ese commit desde cero en un entorno limpio,
+#   3. compara archivo por archivo lo publicado con lo reconstruido, y revisa encabezados, CSP y SRI.
+# Si algo difiere, abre (o actualiza) una incidencia con la etiqueta "security-alert".
+# Ver docs/SEGURIDAD.md.
+name: Verificar sitio publicado
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: verify-live
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Variable del repositorio (Settings → Secrets and variables → Actions → Variables): https://tu-dominio
+      SITE_URL: ${{ vars.SITE_URL }}
+    steps:
+      - id: config
+        run: |
+          if [ -z "$SITE_URL" ]; then
+            echo "::warning::Falta la variable de repositorio SITE_URL: no se verifica el sitio publicado."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # El verificador sale siempre de main (código de confianza), no del commit publicado.
+      - if: steps.config.outputs.skip != 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: tools
+          persist-credentials: false
+
+      - if: steps.config.outputs.skip != 'true'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: tools/.nvmrc
+
+      - id: deployed
+        if: steps.config.outputs.skip != 'true'
+        run: |
+          id="$(node tools/scripts/verify-site.mjs --url "$SITE_URL" --build-id)"
+          # El valor lo informa el sitio, que puede estar comprometido: solo se usa si es un SHA de commit.
+          if ! printf '%s' "$id" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "::error::El sitio no informa un commit válido como identificador de build."
+            exit 1
+          fi
+          echo "sha=$id" >> "$GITHUB_OUTPUT"
+
+      - if: steps.config.outputs.skip != 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.deployed.outputs.sha }}
+          path: deployed
+          persist-credentials: false
+
+      - name: Reconstruir el commit publicado
+        if: steps.config.outputs.skip != 'true'
+        working-directory: deployed
+        env:
+          VERCEL_GIT_COMMIT_SHA: ${{ steps.deployed.outputs.sha }}
+          NEXT_PUBLIC_SITE_URL: ${{ vars.SITE_URL }}
+          CSP_CONNECT_SRC: ${{ vars.CSP_CONNECT_SRC }}
+        run: |
+          npm ci --ignore-scripts
+          npm run build
+
+      - name: Comparar lo publicado con lo reconstruido
+        if: steps.config.outputs.skip != 'true'
+        run: node tools/scripts/verify-site.mjs --url "$SITE_URL" --manifest deployed/.integrity/manifest.json
+
+      - name: Avisar
+        if: failure() && steps.config.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          body="La verificación del sitio publicado falló. Puede ser una alteración real o una diferencia de entorno entre Vercel y el CI (versión de Node, variables). Revisá el detalle: ${RUN_URL}"
+          existing="$(gh issue list --repo "$GITHUB_REPOSITORY" --label security-alert --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh label create security-alert --repo "$GITHUB_REPOSITORY" --color B60205 --description "Alertas de seguridad automáticas" 2>/dev/null || true
+            gh issue create --repo "$GITHUB_REPOSITORY" --label security-alert --title "Alerta: el sitio publicado no coincide con lo construido" --body "$body"
+          fi

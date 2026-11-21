@@ -11,9 +11,12 @@ Sitio de Mariano Lemos Barbaro. El cliente elige uno o varios servicios y respon
 ```bash
 npm install
 npm run dev        # http://localhost:3000/es/
-npm test           # pruebas del modelo y del controlador
-npm run build      # genera ./out
+npm test           # pruebas del modelo, el controlador, la interfaz y la seguridad
+npm run build      # genera ./out y lo endurece (SRI, CSP por página, manifiesto de integridad)
+npm run verify     # comprueba ./out contra la política de seguridad
 ```
+
+La política de seguridad, los encabezados de `vercel.json`, el CI y la verificación del sitio publicado están en [docs/SEGURIDAD.md](docs/SEGURIDAD.md); las próximas integraciones (Cloudflare, Frappe/CRM) y la arquitectura completa, en [docs/INTEGRACIONES.md](docs/INTEGRACIONES.md). Antes de publicar, probar el sitio en una vista previa de Vercel con la consola del navegador abierta: la política de contenido no se pudo probar en un navegador real.
 
 ## Publicar en Vercel
 

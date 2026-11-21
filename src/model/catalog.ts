@@ -324,23 +324,27 @@ export const SERVICES: Service[] = [
     id: 'soporte',
     color: '#3fe0a0',
     short: t('Soporte 24/7', 'Suporte 24/7', '24/7 Support'),
-    tagline: t('Reparaciones y emergencias las 24 horas', 'Consertos e emergências 24 horas', 'Repairs and emergencies around the clock'),
+    tagline: t(
+      'Emergencias, reparación y mantenimiento de equipos',
+      'Emergências, conserto e manutenção de equipamentos',
+      'Emergencies, repair and maintenance of equipment',
+    ),
     title: t('Soporte & Hardware 24/7', 'Suporte & Hardware 24/7', 'Support & Hardware 24/7'),
     summary: t(
-      'Reparo y optimizo equipos y sistemas, y atiendo emergencias las 24 horas para que su operación no se detenga.',
-      'Conserto e otimizo equipamentos e sistemas, e atendo emergências 24 horas para que sua operação não pare.',
-      'I repair and optimize equipment and systems, and handle emergencies around the clock so your operation never stops.',
+      'Atiendo emergencias las 24 horas, reparo equipos y realizo su mantenimiento, de forma remota o presencial, para que su operación no se detenga.',
+      'Atendo emergências 24 horas, conserto equipamentos e faço sua manutenção, de forma remota ou presencial, para que sua operação não pare.',
+      'I handle emergencies around the clock, repair equipment and maintain it, remotely or on-site, so your operation never stops.',
     ),
     includes: [
+      t('Emergencias 24/7, en remoto o presencial', 'Emergências 24/7, remotas ou presenciais', '24/7 emergencies, remote or on-site'),
       t('Diagnóstico y reparación de equipos', 'Diagnóstico e conserto de equipamentos', 'Equipment diagnosis and repair'),
+      t('Mantenimiento preventivo y correctivo', 'Manutenção preventiva e corretiva', 'Preventive and corrective maintenance'),
       t('Optimización de sistemas operativos', 'Otimização de sistemas operacionais', 'Operating system optimization'),
-      t('Mantenimiento preventivo', 'Manutenção preventiva', 'Preventive maintenance'),
-      t('Atención de emergencias 24/7', 'Atendimento de emergências 24/7', '24/7 emergency response'),
     ],
     needs: t(
-      'Me ayuda saber qué tipo de atención necesita, qué equipo está involucrado y qué está pasando.',
-      'Ajuda saber que tipo de atendimento precisa, qual equipamento está envolvido e o que está acontecendo.',
-      'It helps to know what kind of service you need, which equipment is involved and what is happening.',
+      'Me ayuda saber si es una emergencia o un mantenimiento, qué equipo está involucrado, qué está pasando y si prefiere atención remota o presencial.',
+      'Ajuda saber se é uma emergência ou uma manutenção, qual equipamento está envolvido, o que está acontecendo e se prefere atendimento remoto ou presencial.',
+      'It helps to know whether it is an emergency or maintenance, which equipment is involved, what is happening and whether you prefer remote or on-site service.',
     ),
     questions: [
       {
@@ -348,8 +352,8 @@ export const SERVICES: Service[] = [
         label: t('¿Qué tipo de atención necesita?', 'Que tipo de atendimento precisa?', 'What kind of service do you need?'),
         options: [
           o('emergencia', 'Una emergencia ahora', 'Uma emergência agora', 'An emergency right now'),
-          o('puntual', 'Un problema puntual', 'Um problema pontual', 'A one-off problem'),
-          o('periodico', 'Mantenimiento periódico', 'Manutenção periódica', 'Regular maintenance'),
+          o('puntual', 'Reparar un equipo', 'Consertar um equipamento', 'Repair a piece of equipment'),
+          o('periodico', 'Mantenimiento (preventivo o periódico)', 'Manutenção (preventiva ou periódica)', 'Maintenance (preventive or regular)'),
         ],
       },
       {
@@ -370,7 +374,7 @@ export const SERVICES: Service[] = [
         placeholder: t('Ej.: la computadora de caja no enciende desde ayer', 'Ex.: o computador do caixa não liga desde ontem', "E.g.: the checkout computer hasn't turned on since yesterday"),
       },
       {
-        id: 's_modalidad', type: 'single',
+        id: 's_modalidad', type: 'single', required: true,
         label: t('¿Cómo prefiere la atención?', 'Como prefere o atendimento?', 'How would you prefer the service?'),
         options: [
           o('presencial', 'Presencial', 'Presencial', 'On-site'),
@@ -384,21 +388,25 @@ export const SERVICES: Service[] = [
 
 /* ------------------------ Secciones comunes ------------------------ */
 
-export const PROFILE_SECTION: Section = {
-  id: 'perfil',
-  title: t('Sobre usted y su organización', 'Sobre você e sua organização', 'About you and your organization'),
-  intro: t('Para entender el contexto de su consulta.', 'Para entender o contexto da sua consulta.', 'To understand the context of your inquiry.'),
+/** Paso 1: solo lo mínimo para ubicar el contexto. Tres datos que se responden en segundos. */
+export const ACTIVITY_SECTION: Section = {
+  id: 'actividad',
+  color: '#e8edf4',
+  title: t('Su actividad', 'Sua atividade', 'Your business'),
+  intro: t(
+    'Tres datos rápidos para ubicar el contexto de su consulta.',
+    'Três dados rápidos para entender o contexto da sua consulta.',
+    'Three quick facts to understand the context of your inquiry.',
+  ),
   questions: [
-    { id: 'p_nombre', type: 'text', required: true, label: t('Nombre y apellido', 'Nome e sobrenome', 'Full name') },
-    { id: 'p_org', type: 'text', label: t('Empresa u organización', 'Empresa ou organização', 'Company or organization') },
     {
       id: 'p_rubro', type: 'text', required: true,
       label: t('¿A qué se dedica la organización?', 'Qual é a atividade da organização?', 'What does the organization do?'),
       placeholder: t('Ej.: distribuidora de alimentos, estudio contable, clínica', 'Ex.: distribuidora de alimentos, escritório de contabilidade, clínica', 'E.g.: food distributor, accounting firm, clinic'),
     },
     {
-      id: 'p_tamano', type: 'single',
-      label: t('¿Cuántas personas trabajan?', 'Quantas pessoas trabalham?', 'How many people work there?'),
+      id: 'p_tamano', type: 'single', required: true,
+      label: t('¿Cuántas personas trabajan en la organización?', 'Quantas pessoas trabalham na organização?', 'How many people work in the organization?'),
       options: [
         o('1', 'Solo yo', 'Só eu', 'Just me'),
         o('2-10', '2 a 10', '2 a 10', '2 to 10'),
@@ -407,12 +415,22 @@ export const PROFILE_SECTION: Section = {
         o('200+', 'Más de 200', 'Mais de 200', 'More than 200'),
       ],
     },
-    { id: 'p_ubicacion', type: 'text', label: t('Ciudad y país', 'Cidade e país', 'City and country') },
+    {
+      id: 'p_sucursales', type: 'single', required: true,
+      label: t('¿Cuántas sucursales u oficinas tiene?', 'Quantas filiais ou escritórios possui?', 'How many branches or offices do you have?'),
+      options: [
+        o('1', 'Una sola', 'Uma só', 'Just one'),
+        o('2-3', '2 o 3', '2 ou 3', '2 or 3'),
+        o('4-10', '4 a 10', '4 a 10', '4 to 10'),
+        o('10+', 'Más de 10', 'Mais de 10', 'More than 10'),
+      ],
+    },
   ],
 };
 
 export const CLOSING_SECTION: Section = {
   id: 'cierre',
+  color: '#ffe27a',
   title: t('Expectativas y reunión', 'Expectativas e reunião', 'Expectations and meeting'),
   intro: t(
     'Con esto preparo la videollamada. La propuesta final la definimos juntos según lo que más le convenga.',
@@ -477,6 +495,28 @@ export const CLOSING_SECTION: Section = {
   ],
 };
 
+/** Último paso: quién es y cómo ubicarlo. Se pide al final, cuando el cliente ya invirtió en responder. */
+export const CONTACT_SECTION: Section = {
+  id: 'contacto',
+  color: '#e8edf4',
+  title: t('Datos de contacto', 'Dados de contato', 'Contact details'),
+  intro: t(
+    'Último paso: así sé con quién hablo. Su número de WhatsApp llega junto con el mensaje.',
+    'Último passo: assim sei com quem falo. Seu número de WhatsApp chega junto com a mensagem.',
+    'Last step: so I know who I am talking to. Your WhatsApp number arrives with the message.',
+  ),
+  questions: [
+    { id: 'p_nombre', type: 'text', required: true, autoComplete: 'name', label: t('Nombre y apellido', 'Nome e sobrenome', 'Full name') },
+    { id: 'p_org', type: 'text', autoComplete: 'organization', label: t('Empresa u organización', 'Empresa ou organização', 'Company or organization') },
+    { id: 'p_ubicacion', type: 'text', autoComplete: 'address-level2', label: t('Ciudad y país', 'Cidade e país', 'City and country') },
+    {
+      id: 'p_correo', type: 'text', autoComplete: 'email', inputMode: 'email',
+      label: t('Correo electrónico', 'E-mail', 'Email'),
+      placeholder: t('nombre@empresa.com', 'nome@empresa.com', 'name@company.com'),
+    },
+  ],
+};
+
 export function getService(id: ServiceId): Service {
   const svc = SERVICES.find((s) => s.id === id);
   if (!svc) throw new Error(`Servicio desconocido: ${id}`);
@@ -491,10 +531,13 @@ export function serviceToSection(svc: Service): Section {
   return { id: `svc:${svc.id}`, title: svc.title, intro: svc.needs, color: svc.color, questions: svc.questions };
 }
 
-/** Pasos del relevamiento: perfil → un paso por servicio (en orden del catálogo) → cierre. */
+/**
+ * Pasos del relevamiento: actividad (3 datos) → un paso por servicio (en orden del catálogo)
+ * → expectativas y reunión → datos de contacto.
+ */
 export function buildSections(selected: ServiceId[]): Section[] {
   const ordered = SERVICES.filter((s) => selected.includes(s.id));
-  return [PROFILE_SECTION, ...ordered.map(serviceToSection), CLOSING_SECTION];
+  return [ACTIVITY_SECTION, ...ordered.map(serviceToSection), CLOSING_SECTION, CONTACT_SECTION];
 }
 
 export type { Question };

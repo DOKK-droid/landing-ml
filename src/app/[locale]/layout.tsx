@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { notFound } from 'next/navigation';
 import { site } from '@/config/site';
+import { resumeScript } from '@/controller/resume';
 import { DICTIONARIES } from '@/model/i18n';
 import { LOCALES, isLocale } from '@/model/types';
 import '@fontsource-variable/saira';
@@ -38,7 +39,11 @@ export default async function LocaleLayout({ children, params }: { children: Rea
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   return (
-    <html lang={locale}>
+    // suppressHydrationWarning: el script de <head> agrega `data-resume` a <html> antes de que React hidrate.
+    <html lang={locale} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: resumeScript }} />
+      </head>
       <body>{children}</body>
     </html>
   );

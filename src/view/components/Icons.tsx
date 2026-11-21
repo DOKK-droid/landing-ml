@@ -49,6 +49,37 @@ export function ServiceIcon({ name, className }: { name: IconName; className?: s
   );
 }
 
+/** Íconos de las secciones que no son un servicio (actividad, expectativas, contacto). */
+const SECTION_PATHS: Record<string, React.ReactNode> = {
+  actividad: (
+    <>
+      <path d="M4 21V7l8-4 8 4v14M9 21v-5h6v5" />
+      <path d="M8 10h.01M12 10h.01M16 10h.01M8 13h.01M12 13h.01M16 13h.01" />
+    </>
+  ),
+  cierre: (
+    <>
+      <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><path d="M12 12h.01" />
+    </>
+  ),
+  contacto: (
+    <>
+      <circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" />
+    </>
+  ),
+};
+
+/** Ícono de una sección del relevamiento: el del servicio (`svc:ia`) o uno propio. */
+export function SectionIcon({ sectionId, className }: { sectionId: string; className?: string }) {
+  const id = sectionId.startsWith('svc:') ? sectionId.slice(4) : sectionId;
+  const paths = (ICON_PATHS as Record<string, React.ReactNode>)[id] ?? SECTION_PATHS[id] ?? SECTION_PATHS.actividad;
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {paths}
+    </svg>
+  );
+}
+
 export function WhatsAppIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

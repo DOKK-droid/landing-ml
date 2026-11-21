@@ -25,6 +25,9 @@ export interface Question {
   placeholder?: L10n;
   required?: boolean;
   options?: Option[];
+  /** Pistas para el navegador en campos de texto: autocompletado y teclado del celular. */
+  autoComplete?: string;
+  inputMode?: 'text' | 'email' | 'tel' | 'numeric';
 }
 
 export type ServiceId = 'consultoria' | 'desarrollo' | 'gestion' | 'infraestructura' | 'ia' | 'soporte';

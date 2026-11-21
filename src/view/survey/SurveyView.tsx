@@ -1,100 +1,67 @@
 'use client';
-/* Vista del relevamiento paso a paso, revisión del mensaje y confirmación. */
+/* Vista del relevamiento: conversación guiada (Chat), revisión del mensaje y confirmación. */
 import { useEffect, useRef, useState } from 'react';
 import type { SurveyController } from '@/controller/useSurvey';
 import { DICTIONARIES } from '@/model/i18n';
 import { SAFE_URL_LENGTH } from '@/model/message';
 import type { Locale } from '@/model/types';
 import { ArrowIcon, CheckIcon, WhatsAppIcon } from '../components/Icons';
-import { Field } from './Field';
+import { Chat } from './Chat';
 
 export function SurveyView({ locale, ctrl }: { locale: Locale; ctrl: SurveyController }) {
-  const { state, sections, currentSection, actions } = ctrl;
+  const { state, sections, current, actions } = ctrl;
   const d = DICTIONARIES[locale].survey;
   const headingRef = useRef<HTMLHeadingElement>(null);
   const total = sections.length + 1; // + revisión
-  const stepNumber = state.phase === 'survey' ? state.step + 1 : total;
+  const reviewing = state.phase === 'review';
+  const sectionIndex = reviewing ? sections.length : (current?.sectionIndex ?? 0);
+  const stepNumber = sectionIndex + 1;
 
+  // Al entrar al relevamiento o a la revisión se parte desde arriba; en la revisión el foco va al título.
+  // (Durante las preguntas, de llevar el foco a cada pregunta se ocupa el Composer.)
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
-    headingRef.current?.focus();
-  }, [state.step, state.phase]);
-
-  // Al fallar la validación, lleva el foco al primer campo con error.
-  useEffect(() => {
-    const first = Object.keys(state.errors)[0];
-    if (!first) return;
-    const el = document.getElementById(`f-${first}`) ?? document.querySelector<HTMLInputElement>(`[name="f-${first}"]`);
-    el?.focus();
-  }, [state.errors]);
+    if (state.phase === 'review') headingRef.current?.focus();
+  }, [state.phase]);
 
   if (state.phase === 'sent') return <SentView locale={locale} onRestart={actions.restart} />;
 
   return (
     <main className="survey container" id="contenido">
-      <div className="survey__top">
-        <button type="button" className="link" onClick={actions.exit}>
-          <ArrowIcon className="icon" dir="left" /> {d.exit}
-        </button>
-        <span className="survey__ref">{state.reference}</span>
-      </div>
-
-      <ol className="progress" aria-label={d.step(stepNumber, total)}>
-        {sections.map((s, i) => {
-          const status = state.phase === 'review' || i < state.step ? 'done' : i === state.step ? 'current' : 'todo';
-          return (
-            <li key={s.id} className={`progress__item progress__item--${status}`} style={s.color ? ({ '--c': s.color } as React.CSSProperties) : undefined}>
-              <button type="button" disabled={status === 'todo'} onClick={() => actions.goToStep(i)} aria-current={status === 'current' ? 'step' : undefined}>
-                <span className="progress__dot">{status === 'done' ? <CheckIcon className="icon" /> : i + 1}</span>
-                <span className="progress__label">{s.title[locale]}</span>
-              </button>
-            </li>
-          );
-        })}
-        <li className={`progress__item progress__item--${state.phase === 'review' ? 'current' : 'todo'}`}>
-          <button type="button" disabled aria-current={state.phase === 'review' ? 'step' : undefined}>
-            <span className="progress__dot">{total}</span>
-            <span className="progress__label">WhatsApp</span>
+      <div className="survey__frame">
+        <div className="survey__top">
+          <button type="button" className="link" onClick={actions.exit}>
+            <ArrowIcon className="icon" dir="left" /> {d.exit}
           </button>
-        </li>
-      </ol>
+          <span className="survey__ref">{state.reference}</span>
+        </div>
 
-      {state.phase === 'review' ? (
-        <ReviewView locale={locale} ctrl={ctrl} headingRef={headingRef} stepLabel={d.step(stepNumber, total)} />
-      ) : currentSection ? (
-        <form
-          className="panel"
-          style={currentSection.color ? ({ '--c': currentSection.color } as React.CSSProperties) : undefined}
-          onSubmit={(e) => { e.preventDefault(); actions.next(); }}
-          noValidate
-        >
-          <p className="panel__step">{d.step(stepNumber, total)}</p>
-          <h1 className="panel__title" tabIndex={-1} ref={headingRef}>{currentSection.title[locale]}</h1>
-          {currentSection.intro && <p className="panel__intro">{currentSection.intro[locale]}</p>}
-
-          {Object.keys(state.errors).length > 0 && <p className="alert" role="alert">{d.fixErrors}</p>}
-
-          {currentSection.questions.map((q) => (
-            <Field
-              key={q.id}
-              question={q}
-              locale={locale}
-              value={state.answers[q.id]}
-              error={Boolean(state.errors[q.id])}
-              onChange={(v) => actions.setAnswer(q.id, v)}
-            />
-          ))}
-
-          <div className="panel__nav">
-            <button type="button" className="btn btn--ghost" onClick={actions.back}>
-              <ArrowIcon className="icon" dir="left" /> {d.back}
+        <ol className="progress" aria-label={d.step(stepNumber, total)}>
+          {sections.map((s, i) => {
+            const status = reviewing || i < sectionIndex ? 'done' : i === sectionIndex ? 'current' : 'todo';
+            return (
+              <li key={s.id} className={`progress__item progress__item--${status}`} style={s.color ? ({ '--c': s.color } as React.CSSProperties) : undefined}>
+                <button type="button" disabled={status === 'todo'} onClick={() => actions.goToSection(i)} aria-current={status === 'current' ? 'step' : undefined}>
+                  <span className="progress__dot">{status === 'done' ? <CheckIcon className="icon" /> : i + 1}</span>
+                  <span className="progress__label">{s.title[locale]}</span>
+                </button>
+              </li>
+            );
+          })}
+          <li className={`progress__item progress__item--${reviewing ? 'current' : 'todo'}`}>
+            <button type="button" disabled aria-current={reviewing ? 'step' : undefined}>
+              <span className="progress__dot">{total}</span>
+              <span className="progress__label">WhatsApp</span>
             </button>
-            <button type="submit" className="btn btn--primary">
-              {state.step === sections.length - 1 ? d.review : d.next} <ArrowIcon className="icon" />
-            </button>
-          </div>
-        </form>
-      ) : null}
+          </li>
+        </ol>
+
+        {reviewing ? (
+          <ReviewView locale={locale} ctrl={ctrl} headingRef={headingRef} stepLabel={d.step(stepNumber, total)} />
+        ) : current ? (
+          <Chat locale={locale} ctrl={ctrl} step={current} />
+        ) : null}
+      </div>
     </main>
   );
 }
@@ -145,11 +112,13 @@ function SentView({ locale, onRestart }: { locale: Locale; onRestart: () => void
   const d = DICTIONARIES[locale].review;
   return (
     <main className="survey container" id="contenido">
-      <section className="panel panel--center">
-        <span className="sent__icon"><CheckIcon className="icon" /></span>
-        <h1 className="panel__title">{d.sent}</h1>
-        <button type="button" className="btn btn--ghost" onClick={onRestart}>{d.restart}</button>
-      </section>
+      <div className="survey__frame">
+        <section className="panel panel--center">
+          <span className="sent__icon"><CheckIcon className="icon" /></span>
+          <h1 className="panel__title">{d.sent}</h1>
+          <button type="button" className="btn btn--ghost" onClick={onRestart}>{d.restart}</button>
+        </section>
+      </div>
     </main>
   );
 }

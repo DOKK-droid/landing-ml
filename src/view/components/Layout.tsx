@@ -59,7 +59,7 @@ export function SiteFooter({ locale }: { locale: Locale }) {
   const d = DICTIONARIES[locale];
   return (
     <footer className="footer" id="contacto">
-      <div className="container footer__inner">
+      <div className="container footer__inner" data-reveal>
         <div className="footer__brand">
           <Logo className="footer__mark" />
           <div>
