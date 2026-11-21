@@ -72,7 +72,7 @@ async function mount() {
 }
 
 describe('reloj del diagrama', () => {
-  it('antes de llegar al scroll no hay barrido ni agujas ni estallido', async () => {
+  it('antes de llegar al scroll no hay barrido ni destello ni estallido', async () => {
     await mount();
     await pump(30);
     expect(progress()).toBe(0);
@@ -81,7 +81,7 @@ describe('reloj del diagrama', () => {
     expect(lit()).toBe(0);
   });
 
-  it('al subir por la pantalla el círculo se va cerrando, con las agujas y las horas encendidas', async () => {
+  it('al subir por la pantalla el círculo se va cerrando, con el destello y las horas encendidas', async () => {
     await mount();
     await scrollTo(500); // p ≈ 0.5
     await pump(120);
@@ -90,16 +90,15 @@ describe('reloj del diagrama', () => {
     expect(p).toBeLessThan(0.6);
     expect(fig().hasAttribute('data-sweep')).toBe(true);
     expect(lit()).toBe(Math.floor(p * 12));
-    const minute = container.querySelector<SVGLineElement>('.diagram__hand:not(.diagram__hand--hour)')!;
-    expect(minute.getAttribute('x2')).not.toBeNull();
+    expect(container.querySelector('.diagram__spark')!.getAttribute('cx')).not.toBe('230');
     expect(fig().classList.contains('is-complete')).toBe(false);
   });
 
-  it('la aguja larga apunta justo a la punta del trazo revelado', async () => {
+  it('el destello queda justo en la punta del trazo revelado', async () => {
     await mount();
     await scrollTo(500);
     await pump(120);
-    const head = container.querySelector<SVGCircleElement>('.diagram__head')!;
+    const head = container.querySelector<SVGCircleElement>('.diagram__spark')!;
     const cx = Number(head.getAttribute('cx')), cy = Number(head.getAttribute('cy'));
     // El trazo revelado por p termina en el punto de la elipse a esa fracción del perímetro
     const p = progress();
@@ -184,11 +183,12 @@ describe('reloj del diagrama', () => {
 });
 
 describe('estructura del diagrama', () => {
-  it('conserva los seis módulos con su destino y suma 12 marcas de hora, dos agujas y la máscara de la órbita', async () => {
+  it('conserva los seis módulos con su destino y suma 12 marcas de hora, el destello y la máscara de la órbita, sin manecillas', async () => {
     await mount();
     expect(container.querySelectorAll('a.diagram__node').length).toBe(6);
     expect(container.querySelectorAll('.diagram__tick').length).toBe(12);
-    expect(container.querySelectorAll('.diagram__hand').length).toBe(2);
+    expect(container.querySelectorAll('.diagram__spark').length).toBe(1);
+    expect(container.querySelectorAll('line:not(.diagram__tick)').length).toBe(0);
     const orbit = container.querySelector('.diagram__orbit')!;
     const maskRef = orbit.getAttribute('mask')!;
     const id = /url\(#(.+)\)/.exec(maskRef)![1];

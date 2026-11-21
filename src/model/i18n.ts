@@ -10,6 +10,7 @@ export interface Dictionary {
   nav: { services: string; approach: string; contact: string; language: string };
   hero: { eyebrow: string; title: string; lead: string; cta: string; secondary: string };
   concept: { title: string; lead: string; center: string; diagram: string };
+  boot: { label: string };
   emergency: { label: string; message: string };
   consulta: {
     badge: string; title: (minutes: number) => string; lead: string; billing: (minutes: number) => string;
@@ -67,6 +68,7 @@ const es: Dictionary = {
     center: 'Su negocio',
     diagram: 'Diagrama: su negocio en el centro, conectado a seis servicios.',
   },
+  boot: { label: 'Cargando…' },
   emergency: {
     label: 'Emergencia 24/7',
     message: '🚨 *EMERGENCIA 24/7*\nNecesito asistencia técnica urgente.\n\n• Nombre:\n• Empresa / lugar:\n• Qué está pasando:\n• Remoto o presencial:',
@@ -195,6 +197,7 @@ const pt: Dictionary = {
     center: 'Seu negócio',
     diagram: 'Diagrama: seu negócio no centro, conectado a seis serviços.',
   },
+  boot: { label: 'Carregando…' },
   emergency: {
     label: 'Emergência 24/7',
     message: '🚨 *EMERGÊNCIA 24/7*\nPreciso de assistência técnica urgente.\n\n• Nome:\n• Empresa / local:\n• O que está acontecendo:\n• Remoto ou presencial:',
@@ -323,6 +326,7 @@ const en: Dictionary = {
     center: 'Your business',
     diagram: 'Diagram: your business at the center, connected to six services.',
   },
+  boot: { label: 'Loading…' },
   emergency: {
     label: '24/7 Emergency',
     message: '🚨 *24/7 EMERGENCY*\nI need urgent technical assistance.\n\n• Name:\n• Company / location:\n• What is happening:\n• Remote or on-site:',

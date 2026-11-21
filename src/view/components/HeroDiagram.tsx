@@ -2,9 +2,9 @@
 /* Diagrama de la sección "Tecnología pensada desde su negocio": "su negocio" al centro y los seis servicios como módulos.
  *
  * Se anima con el scroll, no al cargar: a medida que la figura sube por la pantalla, la línea punteada se dibuja en
- * sentido horario como un reloj (una aguja larga marca la punta del trazo y una corta avanza despacio) y las marcas de
- * las horas se encienden al pasar. Cuando el círculo se cierra —con la figura ya entera a la vista, no cortada por el
- * borde de la pantalla— estalla la animación completa: onda expansiva, conexiones, módulos y el centro.
+ * sentido horario, como el barrido de un reloj, con un destello en la punta del trazo, y las marcas de las horas se
+ * encienden al pasar. Cuando el círculo se cierra —con la figura ya entera a la vista, no cortada por el borde de la
+ * pantalla— estalla la animación completa: onda expansiva, conexiones, módulos y el centro.
  * Esa parte se dispara una sola vez; lo demás sigue al scroll con algo de inercia (view/clock.ts).
  * Cada módulo lleva a su tarjeta en la sección de servicios. */
 import { useEffect, useId, useRef, useState } from 'react';
@@ -28,10 +28,9 @@ const POS: Record<ServiceId, [number, number]> = {
   soporte: [92, 138],
 };
 
-/** Semiejes de la órbita punteada y semimedidas del recuadro central ("su negocio"). */
+/** Semiejes de la órbita punteada. */
 const RX = 170;
 const RY = 178;
-const CORE_HALF = [80, 32] as const;
 const ELLIPSE = makeEllipse(RX, RY);
 /** La órbita arranca a las 12 y va en sentido horario: dos semiarcos. */
 const ORBIT = `M${CX} ${CY - RY}A${RX} ${RY} 0 0 1 ${CX} ${CY + RY}A${RX} ${RY} 0 0 1 ${CX} ${CY - RY}`;
@@ -51,30 +50,18 @@ function connector([x, y]: [number, number]): string {
   return `M${sx} ${CY}H${x}V${y + (y < CY ? BOX_H / 2 : -BOX_H / 2)}`;
 }
 
-/** Aguja: sale del borde del recuadro central (no del centro, que queda tapado) hacia (x, y), relativo al centro. */
-function setHand(line: SVGLineElement, x: number, y: number, reach: number) {
-  const l = Math.hypot(x, y) || 1;
-  const t = Math.min(CORE_HALF[0] / (Math.abs(x / l) || 1e-6), CORE_HALF[1] / (Math.abs(y / l) || 1e-6)) + 3;
-  line.setAttribute('x1', (CX + (x / l) * t).toFixed(2));
-  line.setAttribute('y1', (CY + (y / l) * t).toFixed(2));
-  line.setAttribute('x2', (CX + x * reach).toFixed(2));
-  line.setAttribute('y2', (CY + y * reach).toFixed(2));
-}
-
 export function HeroDiagram({ locale, selected, onPick }: { locale: Locale; selected: ServiceId[]; onPick: (id: ServiceId) => void }) {
   const d = DICTIONARIES[locale].concept;
   const maskId = `orbit-${useId().replace(/:/g, '')}`;
   const figRef = useRef<HTMLElement>(null);
   const revealRef = useRef<SVGPathElement>(null);
-  const minuteRef = useRef<SVGLineElement>(null);
-  const hourRef = useRef<SVGLineElement>(null);
   const headRef = useRef<SVGCircleElement>(null);
   const [complete, setComplete] = useState(false);
 
   // El reloj sigue al scroll. Todo lo que cambia en cada cuadro se escribe directo en el DOM (sin re-renderizar).
   useEffect(() => {
-    const fig = figRef.current, reveal = revealRef.current, minute = minuteRef.current, hour = hourRef.current, head = headRef.current;
-    if (!fig || !reveal || !minute || !hour || !head) return;
+    const fig = figRef.current, reveal = revealRef.current, head = headRef.current;
+    if (!fig || !reveal || !head) return;
     // Con "reducir movimiento" no hay barrido ni estallido: el diagrama aparece completo (el CSS fija los estados finales).
     if (prefersReducedMotion()) { setComplete(true); return; }
 
@@ -89,9 +76,6 @@ export function HeroDiagram({ locale, selected, onPick }: { locale: Locale; sele
     const paint = (p: number) => {
       reveal.style.strokeDashoffset = String(1 - p);
       const tip = ELLIPSE.at(p);
-      setHand(minute, tip.x, tip.y, 1);
-      const h = ELLIPSE.at(p / 12);
-      setHand(hour, h.x, h.y, 0.5);
       head.setAttribute('cx', (CX + tip.x).toFixed(2));
       head.setAttribute('cy', (CY + tip.y).toFixed(2));
       if (p > 0.004) fig.dataset.sweep = ''; else delete fig.dataset.sweep;
@@ -153,11 +137,7 @@ export function HeroDiagram({ locale, selected, onPick }: { locale: Locale; sele
         </g>
         <path className="diagram__dim" d="M30 220h20M410 220h20M230 16v14M230 410v14" />
 
-        <g className="diagram__hands" aria-hidden="true">
-          <line ref={hourRef} className="diagram__hand diagram__hand--hour" />
-          <line ref={minuteRef} className="diagram__hand" />
-          <circle ref={headRef} className="diagram__head" r="4.5" cx={CX} cy={CY - RY} />
-        </g>
+        <circle ref={headRef} className="diagram__spark" r="4.5" cx={CX} cy={CY - RY} aria-hidden="true" />
 
         <ellipse className="diagram__wave" cx={CX} cy={CY} rx={RX} ry={RY} aria-hidden="true" />
         <ellipse className="diagram__wave diagram__wave--b" cx={CX} cy={CY} rx={RX} ry={RY} aria-hidden="true" />

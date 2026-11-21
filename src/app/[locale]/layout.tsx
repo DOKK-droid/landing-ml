@@ -4,6 +4,7 @@ import { site } from '@/config/site';
 import { resumeScript } from '@/controller/resume';
 import { DICTIONARIES } from '@/model/i18n';
 import { LOCALES, isLocale } from '@/model/types';
+import { Boot } from '@/view/components/Boot';
 import '@fontsource-variable/saira';
 import '@fontsource/ibm-plex-sans/400.css';
 import '@fontsource/ibm-plex-sans/500.css';
@@ -40,11 +41,16 @@ export default async function LocaleLayout({ children, params }: { children: Rea
   if (!isLocale(locale)) notFound();
   return (
     // suppressHydrationWarning: el script de <head> agrega `data-resume` a <html> antes de que React hidrate.
-    <html lang={locale} suppressHydrationWarning>
+    // data-boot="loading": hasta que el banner de carga se retira (ver view/components/Boot.tsx) la entrada del
+    // inicio espera y el logo se queda plano; Boot lo cambia a "ready".
+    <html lang={locale} data-boot="loading" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: resumeScript }} />
       </head>
-      <body>{children}</body>
+      <body>
+        <Boot locale={locale} />
+        {children}
+      </body>
     </html>
   );
 }

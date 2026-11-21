@@ -51,6 +51,8 @@ export function App({ locale }: { locale: Locale }) {
       <div className="backdrop" aria-hidden="true" />
       <a className="skip" href="#contenido">↓</a>
       <SiteHeader locale={locale} onHome={actions.exit} compact={inSurvey} />
+      {/* Fija bajo el menú (no ocupa lugar en el flujo): ver .selbar. */}
+      {!inSurvey && <SelectionBar locale={locale} count={state.selected.length} onContinue={actions.start} onClear={actions.clearServices} />}
       {inSurvey ? (
         <SurveyView locale={locale} ctrl={ctrl} />
       ) : (
@@ -60,11 +62,10 @@ export function App({ locale }: { locale: Locale }) {
           <ServicesSection locale={locale} selected={state.selected} openId={openId} flashId={flashId} onOpen={setOpenId} onToggle={actions.toggleService} />
           <OfferSection locale={locale} onStart={startOrPick} />
           <Approach locale={locale} />
-          <SelectionBar locale={locale} count={state.selected.length} onContinue={actions.start} onClear={actions.clearServices} />
         </main>
       )}
       <SiteFooter locale={locale} />
-      {!inSurvey && <EmergencyButton locale={locale} raised={state.selected.length > 0} />}
+      {!inSurvey && <EmergencyButton locale={locale} />}
     </>
   );
 }

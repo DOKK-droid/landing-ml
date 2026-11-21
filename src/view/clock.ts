@@ -1,6 +1,6 @@
 /* VISTA — Matemáticas del "reloj" del diagrama de la sección "Tecnología pensada desde su negocio".
  * Sin DOM, para poder probarlas: el progreso según el scroll, el seguimiento suave de ese progreso y el punto de la
- * elipse por la que avanzan las agujas. */
+ * elipse por la que avanza el barrido. */
 
 const TAU = Math.PI * 2;
 const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
@@ -49,7 +49,7 @@ export interface Ellipse {
 /**
  * Elipse de semiejes `a` (horizontal) y `b` (vertical), recorrida por longitud de arco. En una elipse el ángulo no
  * avanza al mismo ritmo que el perímetro, y el borde del trazo que se va revelando sí lo hace: se usa una tabla de
- * longitudes para que la aguja quede justo en la punta del trazo.
+ * longitudes para que el destello quede justo en la punta del trazo.
  */
 export function makeEllipse(a: number, b: number, n = 720): Ellipse {
   const len = new Float64Array(n + 1);

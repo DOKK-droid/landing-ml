@@ -43,10 +43,10 @@ export function LanguageSwitcher({ locale }: { locale: Locale }) {
   );
 }
 
-export function EmergencyButton({ locale, raised }: { locale: Locale; raised?: boolean }) {
+export function EmergencyButton({ locale }: { locale: Locale }) {
   const d = DICTIONARIES[locale].emergency;
   return (
-    <a className={`emergency ${raised ? 'emergency--raised' : ''}`} href={buildWhatsAppUrl(d.message)} target="_blank" rel="noopener noreferrer" aria-label={d.label}>
+    <a className="emergency" href={buildWhatsAppUrl(d.message)} target="_blank" rel="noopener noreferrer" aria-label={d.label}>
       <span className="emergency__pulse" aria-hidden="true" />
       <WhatsAppIcon className="icon" />
       <span className="emergency__full">{d.label}</span>

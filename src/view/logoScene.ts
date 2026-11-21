@@ -71,7 +71,8 @@ const AX_Z: V3 = [0, 0, 1];
 
 /** Giros de la marca: grados, grados y px (los mismos que antes tenía el keyframe mark-float de 7 s). */
 export interface MarkPose { a: number; b: number; ty: number }
-export interface Pose { ring: M3; dots: M3; arcA: M3; arcB: M3; globe: M3; mark: MarkPose }
+/** `comet` (0..1): cuánto de estela fugaz tienen los arcos de colores. 0 = el dibujo de marca (arcos parejos con un punto en cada extremo). */
+export interface Pose { ring: M3; dots: M3; arcA: M3; arcB: M3; globe: M3; mark: MarkPose; comet: number }
 
 /** Eje del globo: inclinado 20° de lado y 18° hacia el espectador. */
 const GLOBE_TILT = mul(rotAxis(AX_Z, rad(-20)), rotAxis(AX_X, rad(-18)));
@@ -81,25 +82,71 @@ const DOTS_AXIS: V3 = [0.966, 0.259, 0];
 const ARC_A_AXIS: V3 = [0.883, -0.469, 0];
 const ARC_B_AXIS: V3 = [0.848, 0.53, 0];
 
+/** Pose plana (2D): la del dibujo de marca. Aros y arcos de frente, globo solo con su inclinación, marca sin girar. */
+const FLAT: Pose = { ring: I3, dots: I3, arcA: I3, arcB: I3, globe: GLOBE_TILT, mark: { a: 0, b: 0, ty: 0 }, comet: 0 };
+
 /**
- * Orientación de todo en el instante `t` (segundos). Con `reduced` todo queda en la posición de marca:
- * aros y arcos de frente, globo solo con su inclinación y marca sin girar.
+ * Cada pieza entra al movimiento en su momento y tarda lo suyo en llegar a su ritmo completo: [retardo, rampa] en
+ * segundos desde que empieza la animación. Escalonado, para que la transición de 2D a 3D se aprecie pieza por pieza
+ * (primero gira el globo, luego se despliegan los arcos, se inclina la marca, se voltea el anillo y al final las perlas)
+ * en vez de ocurrir todo de golpe.
  */
-export function poseAt(t: number, reduced: boolean): Pose {
-  if (reduced) return { ring: I3, dots: I3, arcA: I3, arcB: I3, globe: GLOBE_TILT, mark: { a: 0, b: 0, ty: 0 } };
+export const STAGES = {
+  globe: { delay: 0, ramp: 3 },
+  arcs: { delay: 0.5, ramp: 3.6 },
+  mark: { delay: 1, ramp: 3.6 },
+  ring: { delay: 1.4, ramp: 3 },
+  dots: { delay: 2.2, ramp: 3 },
+} as const;
+
+/** Segundos hasta que todas las piezas están a su ritmo completo. */
+export const TRANSITION_S = Math.max(...Object.values(STAGES).map((st) => st.delay + st.ramp));
+
+/**
+ * Reloj de una pieza, `tau` segundos después de empezar a animar. Vale 0 hasta su retardo y su velocidad sube de 0 a 1
+ * durante `ramp`: los giros arrancan acelerando en vez de saltar a velocidad completa. Después avanza un segundo por segundo.
+ */
+export function animClock(tau: number, ramp: number): number {
+  if (tau <= 0) return 0;
+  return tau < ramp ? (tau * tau) / (2 * ramp) : tau - ramp / 2;
+}
+
+/** Mezcla suavizada 0 → 1 durante `ramp`: cuánto de la inclinación de los planos y del vaivén de la marca está activo. */
+export function animBlend(tau: number, ramp: number): number {
+  const x = clamp01(tau / ramp);
+  return x * x * (3 - 2 * x);
+}
+
+/**
+ * Orientación de todo `tau` segundos después de empezar a animar. En `tau = 0` es exactamente la pose plana (el logo 2D)
+ * y durante `TRANSITION_S` pasa suavemente, pieza por pieza, al movimiento completo (3D). Con `reduced` se queda siempre
+ * en la pose plana.
+ */
+export function poseAt(tau: number, reduced: boolean): Pose {
+  if (reduced || tau <= 0) return FLAT;
+  const clock = (st: { delay: number; ramp: number }) => animClock(tau - st.delay, st.ramp);
+  const blend = (st: { delay: number; ramp: number }) => animBlend(tau - st.delay, st.ramp);
+  const sa = clock(STAGES.arcs), ka = blend(STAGES.arcs);
+  const sm = clock(STAGES.mark), km = blend(STAGES.mark);
+  const sr = clock(STAGES.ring);
+  const sd = clock(STAGES.dots);
+  const sg = clock(STAGES.globe);
   // Órbita: el plano se inclina oscilando entre dos ángulos (eje en pantalla) y el arco gira dentro de su plano.
+  // `ka` lo saca del plano de la pantalla poco a poco: de 0 (plano) al ángulo de la órbita.
   const orbit = (axis: V3, mid: number, amp: number, delay: number, period: number, spin: number): M3 =>
-    mul(rotAxis(axis, rad(mid - amp * Math.cos((TAU * (t + delay)) / period))), rotAxis(AX_Z, spin));
-  const c = Math.cos((TAU * t) / 7);
+    mul(rotAxis(axis, rad(ka * (mid - amp * Math.cos((TAU * (sa + delay)) / period)))), rotAxis(AX_Z, spin));
+  const c = Math.cos((TAU * sm) / 7);
   return {
     // Anillo plateado: vuelta completa sobre un diámetro casi vertical + giro lento en su plano.
-    ring: mul(rotAxis(RING_AXIS, (TAU * t) / 22), rotAxis(AX_Z, (TAU * t) / 28)),
+    ring: mul(rotAxis(RING_AXIS, (TAU * sr) / 22), rotAxis(AX_Z, (TAU * sr) / 28)),
     // Círculo de perlas: vuelta completa sobre un diámetro casi horizontal, en sentido contrario.
-    dots: rotAxis(DOTS_AXIS, -(TAU * t) / 30),
-    arcA: orbit(ARC_A_AXIS, 56, 12, 3, 22, (TAU * t) / 18),
-    arcB: orbit(ARC_B_AXIS, 66, 10, 7, 28, -(TAU * t) / 23),
-    globe: mul(GLOBE_TILT, rotAxis(AX_Y, (TAU * t) / 32)),
-    mark: { a: -14 * c, b: 4 * c, ty: -3 * (1 - c) },
+    dots: rotAxis(DOTS_AXIS, -(TAU * sd) / 30),
+    arcA: orbit(ARC_A_AXIS, 56, 12, 3, 22, (TAU * sa) / 18),
+    arcB: orbit(ARC_B_AXIS, 66, 10, 7, 28, -(TAU * sa) / 23),
+    globe: mul(GLOBE_TILT, rotAxis(AX_Y, (TAU * sg) / 32)),
+    mark: { a: -14 * c * km, b: 4 * c * km, ty: -3 * (1 - c) * km },
+    // La estela crece con el despliegue de los arcos: en 2D no hay, a pleno movimiento es completa.
+    comet: ka,
   };
 }
 
@@ -165,7 +212,7 @@ function ramp(g: number): RGB {
 
 // ---------------------------------------------------------------- piezas
 
-interface Frame { c: number; u: number; D: number; plane: Plane }
+interface Frame { c: number; u: number; D: number; plane: Plane; /** Resplandores: se dibujan antes que todas las piezas, ver drawScene. */ glows: Item[] }
 interface Item { z: number; front: boolean; draw: (ctx: Ctx) => void }
 
 /** Pasadas de resplandor (aditivas) de un tubo: [múltiplo del ancho, opacidad]. */
@@ -179,39 +226,56 @@ function trace(ctx: Ctx, X: Float64Array, Y: Float64Array, a: number, b: number)
   for (let i = a + 1; i <= b; i++) ctx.lineTo(X[i], Y[i]);
 }
 
-function gradient(ctx: Ctx, x0: number, y0: number, x1: number, y1: number, c0: RGB, c1: RGB, k: (c: RGB) => RGB, alpha = 1) {
+function gradient(ctx: Ctx, x0: number, y0: number, x1: number, y1: number, c0: RGB, c1: RGB, k: (c: RGB) => RGB, alpha = 1, alpha1 = alpha) {
   const g = ctx.createLinearGradient(x0, y0, x1, y1);
   g.addColorStop(0, css(k(c0), alpha));
-  g.addColorStop(1, css(k(c1), alpha));
+  g.addColorStop(1, css(k(c1), alpha1));
   return g;
+}
+
+/**
+ * Resplandor de un tramo: trazos anchos que se suman (lighter). Con extremos planos los tramos contiguos se solapan o dejan
+ * huecos en cada codo y el halo sale a baldosas; con extremos redondos cubren cada punto de forma continua, pero entonces
+ * un punto lo cubren varios tramos a la vez (unos 1 + ancho/largo) y la suma lo sobreexpone: se reparte la opacidad
+ * entre ellos. `al0`/`al1` son la opacidad en los extremos (la estela se desvanece) y `wGlow` el ancho base.
+ */
+function glowChunk(ctx: Ctx, X: Float64Array, Y: Float64Array, a: number, b: number, wGlow: number, c0: RGB, c1: RGB, al0: number, al1: number) {
+  if (al0 < 0.01 && al1 < 0.01) return;
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.lineCap = 'round';
+  const mid = mixc(c0, c1, 0.5);
+  const al = (al0 + al1) / 2;
+  let len = 0;
+  for (let i = a + 1; i <= b; i++) len += Math.hypot(X[i] - X[i - 1], Y[i] - Y[i - 1]);
+  for (const [k, g] of GLOW) {
+    const gw = wGlow * k;
+    ctx.strokeStyle = css(mid, (g * al) / (1 + gw / Math.max(len, 1)));
+    ctx.lineWidth = gw;
+    trace(ctx, X, Y, a, b);
+    ctx.stroke();
+  }
+  ctx.lineCap = 'butt';
+  ctx.globalCompositeOperation = 'source-over';
 }
 
 /**
  * Un tramo de tubo, sombreado como cilindro: borde oscuro, cuerpo con el color y un brillo fino desplazado hacia la luz.
  * Los extremos son planos (butt) y el color se interpola entre los dos extremos del tramo, así no hay costuras;
- * los tapones redondos del tubo se dibujan aparte.
+ * los tapones redondos del tubo se dibujan aparte. `al0`/`al1` son la opacidad en cada extremo (1 = opaco): sirven
+ * para desvanecer la cola de un cometa; el borde oscuro se desvanece más rápido que el color para que la cola quede
+ * como luz y no como un trazo con contorno.
  */
-function strokeChunk(ctx: Ctx, X: Float64Array, Y: Float64Array, a: number, b: number, w: number, c0: RGB, c1: RGB, glow: boolean) {
+function strokeChunk(ctx: Ctx, X: Float64Array, Y: Float64Array, a: number, b: number, w: number, c0: RGB, c1: RGB, al0 = 1, al1 = 1) {
+  if (al0 < 0.01 && al1 < 0.01) return;
   const n = X.length;
   ctx.lineCap = 'butt';
   ctx.lineJoin = 'round';
-  if (glow) {
-    ctx.globalCompositeOperation = 'lighter';
-    const mid = mixc(c0, c1, 0.5);
-    for (const [k, al] of GLOW) {
-      ctx.strokeStyle = css(mid, al);
-      ctx.lineWidth = w * k;
-      trace(ctx, X, Y, a, b);
-      ctx.stroke();
-    }
-    ctx.globalCompositeOperation = 'source-over';
-  }
   trace(ctx, X, Y, a, b);
   ctx.lineWidth = w;
-  ctx.strokeStyle = gradient(ctx, X[a], Y[a], X[b], Y[b], c0, c1, (c) => mixc(c, NIGHT, 0.6));
+  ctx.strokeStyle = gradient(ctx, X[a], Y[a], X[b], Y[b], c0, c1, (c) => mixc(c, NIGHT, 0.6), al0 * al0, al1 * al1);
   ctx.stroke();
   ctx.lineWidth = w * 0.66;
-  ctx.strokeStyle = gradient(ctx, X[a], Y[a], X[b], Y[b], c0, c1, (c) => c);
+  ctx.strokeStyle = gradient(ctx, X[a], Y[a], X[b], Y[b], c0, c1, (c) => c, al0, al1);
   ctx.stroke();
   // Brillo: sigue la línea del tubo pero corrido hacia la luz; cuanto más de lado respecto a la luz, más corrido.
   ctx.beginPath();
@@ -224,7 +288,7 @@ function strokeChunk(ctx: Ctx, X: Float64Array, Y: Float64Array, a: number, b: n
     if (i === a) ctx.moveTo(X[i] + nx * off, Y[i] + ny * off); else ctx.lineTo(X[i] + nx * off, Y[i] + ny * off);
   }
   ctx.lineWidth = w * 0.24;
-  ctx.strokeStyle = gradient(ctx, X[a], Y[a], X[b], Y[b], c0, c1, (c) => mixc(c, WHITE, 0.62), 0.9);
+  ctx.strokeStyle = gradient(ctx, X[a], Y[a], X[b], Y[b], c0, c1, (c) => mixc(c, WHITE, 0.62), 0.9 * al0, 0.9 * al1);
   ctx.stroke();
 }
 
@@ -240,6 +304,14 @@ function sphere(ctx: Ctx, x: number, y: number, r: number, base: RGB) {
   ctx.fill();
 }
 
+/**
+ * Perfil de la estela de un cometa. `t` es la distancia a la cabeza (0 = cabeza, 1 = punta de la cola) y `amount` cuánta
+ * estela hay (0 = ninguna: el tubo parejo de siempre; 1 = completa). El ancho se afina de forma pareja hacia la cola...
+ */
+export const cometWidth = (t: number, amount: number) => 1 - amount * 0.82 * Math.pow(clamp01(t), 0.85);
+/** ...y la opacidad cae rápido cerca de la punta (como una estela fugaz): la cola termina en nada, sin corte. */
+export const cometAlpha = (t: number, amount: number) => 1 - amount * (1 - Math.pow(1 - clamp01(t), 1.9));
+
 interface TubeStyle {
   /** Radio del tubo en unidades. */
   r: number;
@@ -248,6 +320,13 @@ interface TubeStyle {
   glow?: boolean;
   /** Esferas en los extremos (radio en unidades): tapones de un tubo abierto. */
   cap?: number;
+  /**
+   * Estela de cometa: `head` es el extremo por el que avanza (0 = primer punto, 1 = último) y el otro es la cola, que
+   * se afina y se desvanece (`cometWidth`, `cometAlpha`). La cabeza crece un poco y el tapón de la cola se encoge a nada.
+   */
+  comet?: { head: 0 | 1; amount: number };
+  /** Puntos por tramo del núcleo (por defecto `CHUNK`). */
+  chunk?: number;
 }
 
 /** Proyecta un punto del mundo a píxeles del canvas. */
@@ -265,22 +344,49 @@ function addTube(items: Item[], fr: Frame, pts: V3[], norms: V3[], st: TubeStyle
     X[i] = x; Y[i] = y; F[i] = f;
     col.push(st.color(i / (n - 1), lambert(norms[i]), depthT(pts[i][2])));
   }
-  for (let a = 0; a < n - 1; a += CHUNK - 1) {
-    const b = Math.min(a + CHUNK - 1, n - 1);
-    let mx = 0, my = 0, mz = 0, mf = 0;
-    for (let i = a; i <= b; i++) { mx += pts[i][0]; my += pts[i][1]; mz += pts[i][2]; mf += F[i]; }
+  const cm = st.comet;
+  const amount = cm ? cm.amount : 0;
+  const headIdx = cm ? (cm.head === 1 ? n - 1 : 0) : -1;
+  /** Distancia a la cabeza (0..1) del punto i. */
+  const tail = (i: number) => (cm ? Math.abs(i - headIdx) / (n - 1) : 0);
+  /** Medidas de la estela en el tramo a..b (ancho del núcleo, ancho del resplandor y opacidad en cada extremo). */
+  const profile = (a: number, b: number) => {
+    let mf = 0;
+    for (let i = a; i <= b; i++) mf += F[i];
+    const wf = cometWidth((tail(a) + tail(b)) / 2, amount);
+    const base = 2 * st.r * fr.u * (mf / (b - a + 1));
+    // El resplandor se afina menos que el núcleo: en la cola queda un halo ancho y difuso alrededor de un hilo fino.
+    return { w: base * wf, wGlow: base * (0.5 + 0.5 * wf), al0: cometAlpha(tail(a), amount), al1: cometAlpha(tail(b), amount) };
+  };
+  const meanZ = (a: number, b: number): V3 => {
+    let mx = 0, my = 0, mz = 0;
+    for (let i = a; i <= b; i++) { mx += pts[i][0]; my += pts[i][1]; mz += pts[i][2]; }
     const k = b - a + 1;
-    const mid: V3 = [mx / k, my / k, mz / k];
-    const w = 2 * st.r * fr.u * (mf / k);
-    items.push({
-      z: mid[2],
-      front: isFront(fr.plane, fr.D, mid),
-      draw: (ctx) => strokeChunk(ctx, X, Y, a, b, w, col[a], col[b], !!st.glow),
-    });
+    return [mx / k, my / k, mz / k];
+  };
+  // Núcleo: tramos de varios puntos. Cada stroke() es independiente y donde se juntan dos bordes suavizados queda una
+  // costura tenue, así que cuantos menos tramos mejor; el degradado de color y de opacidad corre dentro de cada uno.
+  const step = (st.chunk ?? CHUNK) - 1;
+  for (let a = 0; a < n - 1; a += step) {
+    const b = Math.min(a + step, n - 1);
+    const mid = meanZ(a, b);
+    const { w, al0, al1 } = profile(a, b);
+    items.push({ z: mid[2], front: isFront(fr.plane, fr.D, mid), draw: (ctx) => strokeChunk(ctx, X, Y, a, b, w, col[a], col[b], al0, al1) });
+  }
+  // Resplandor: tramos cortos (la estela se afina y se desvanece con más finura) y aparte del núcleo: es luz que se suma,
+  // y dibujada junto a cada tramo caería encima del núcleo del anterior. Los extremos redondos no dejan costuras.
+  if (st.glow) {
+    for (let a = 0; a < n - 1; a++) {
+      const b = a + 1;
+      const mid = meanZ(a, b);
+      const { wGlow, al0, al1 } = profile(a, b);
+      fr.glows.push({ z: mid[2], front: isFront(fr.plane, fr.D, mid), draw: (ctx) => glowChunk(ctx, X, Y, a, b, wGlow, col[a], col[b], al0, al1) });
+    }
   }
   if (st.cap) {
     for (const i of [0, n - 1]) {
-      const r = st.cap * fr.u * F[i];
+      const r = st.cap * fr.u * F[i] * (cm ? (i === headIdx ? 1 + 0.25 * amount : 1 - amount) : 1);
+      if (r < 0.4) continue;
       const c = col[i];
       items.push({ z: pts[i][2], front: isFront(fr.plane, fr.D, pts[i]), draw: (ctx) => {
         if (st.glow) {
@@ -324,6 +430,8 @@ const ARC_B = [angleOf(133.9, 124.45), angleOf(83.52, 151.24)] as const;
 const DOTS_R = 88.5;
 const DOTS_N = 96;
 const GLOBE_R = 84;
+/** Cuánto se alarga la cola de los arcos con la estela completa, como fracción de su largo original. */
+const TAIL_EXTRA = 0.7;
 
 // ---------------------------------------------------------------- globo
 
@@ -428,30 +536,38 @@ function drawGlobe(ctx: Ctx, fr: Frame, m: M3) {
 /**
  * Dibuja un cuadro. `back` y `front` son los contextos de los canvas de detrás y de delante de la marca, ya escalados
  * a px CSS (sin transformación extra). `layer` es el lado de la capa del logo en px CSS; los canvas miden
- * `layer * (1 + 2 * CANVAS_PAD)` y su centro es el centro de la capa.
+ * `layer * (1 + 2 * CANVAS_PAD)` y su centro es el centro de la capa. `t` son los segundos desde que empezó la
+ * animación (0 o menos = logo plano).
  */
 export function drawScene(back: Ctx, front: Ctx, layer: number, t: number, reduced: boolean): Pose {
   const u = layer / VB;
   const D = PERSPECTIVE_PX / u;
   const pose = poseAt(t, reduced);
   const size = layer * (1 + 2 * CANVAS_PAD);
-  const fr: Frame = { c: size / 2, u, D, plane: markPlane(pose.mark, u) };
+  const fr: Frame = { c: size / 2, u, D, plane: markPlane(pose.mark, u), glows: [] };
   back.clearRect(0, 0, size, size);
   front.clearRect(0, 0, size, size);
 
   const items: Item[] = [];
 
   const ring = arcPoints(pose.ring, RING_R, RING_A0, RING_A1, 150);
-  addTube(items, fr, ring.p, ring.nr, { r: 1.75, color: (_s, lam, zn) => SILVER(lam, zn), cap: 1.75 });
+  addTube(items, fr, ring.p, ring.nr, { r: 1.75, color: (_s, lam, zn) => SILVER(lam, zn), cap: 1.75, chunk: 9 });
 
-  const arcColor = (g0: number, g1: number) => (s: number, lam: number, zn: number): RGB => {
-    const base = ramp(g0 + (g1 - g0) * s);
+  // Arcos de colores como cometas. Giran en el sentido en que crece (A) o decrece (B) su ángulo, así que la cabeza es el
+  // extremo de ese lado y la cola es el otro, que además se alarga hacia atrás (`TAIL_EXTRA`) a medida que crece la estela.
+  const comet = pose.comet;
+  const eA = comet * TAIL_EXTRA, eB = comet * TAIL_EXTRA;
+  /** Color del arco en el punto de avance `s` (0..1 sobre el arco ya alargado); `u` lo lleva al dibujo original. */
+  const arcColor = (g0: number, g1: number, e: number, tailFirst: boolean) => (s: number, lam: number, zn: number): RGB => {
+    const u = tailFirst ? s * (1 + e) - e : s * (1 + e);
+    const base = ramp(g0 + (g1 - g0) * u);
     return mixc(BG, mixc(shade(base, 0.62), shade(base, 1.12), clamp01(0.2 + 0.9 * lam)), 0.6 + 0.4 * zn);
   };
-  const a = arcPoints(pose.arcA, ARC_R, ARC_A[0], ARC_A[1], 44);
-  addTube(items, fr, a.p, a.nr, { r: 1.4, color: arcColor(0.4, 0.17), glow: true, cap: 2.9 });
-  const b = arcPoints(pose.arcB, ARC_R, ARC_B[0], ARC_B[1], 12);
-  addTube(items, fr, b.p, b.nr, { r: 1.4, color: arcColor(0.89, 0.83), glow: true, cap: 2.9 });
+  const spanA = ARC_A[1] - ARC_A[0], spanB = ARC_B[1] - ARC_B[0];
+  const a = arcPoints(pose.arcA, ARC_R, ARC_A[0] - eA * spanA, ARC_A[1], 72);
+  addTube(items, fr, a.p, a.nr, { r: 1.4, color: arcColor(0.4, 0.17, eA, true), glow: true, cap: 2.9, comet: { head: 1, amount: comet } });
+  const b = arcPoints(pose.arcB, ARC_R, ARC_B[0], ARC_B[1] + eB * spanB, 28);
+  addTube(items, fr, b.p, b.nr, { r: 1.4, color: arcColor(0.89, 0.83, eB, false), glow: true, cap: 2.9, comet: { head: 0, amount: comet } });
 
   // Perlas del círculo punteado: una esfera por perla, ordenadas junto con el resto.
   for (let i = 0; i < DOTS_N; i++) {
@@ -465,6 +581,8 @@ export function drawScene(back: Ctx, front: Ctx, layer: number, t: number, reduc
   }
 
   drawGlobe(back, fr, pose.globe);
+  // Primero todos los resplandores (son luz que se suma, van debajo de los tubos) y encima los tubos, de lejos a cerca.
+  for (const g of fr.glows) g.draw(g.front ? front : back);
   items.sort((p, q) => p.z - q.z);
   for (const it of items) it.draw(it.front ? front : back);
   return pose;
@@ -472,36 +590,83 @@ export function drawScene(back: Ctx, front: Ctx, layer: number, t: number, reduc
 
 // ---------------------------------------------------------------- ejecución en el navegador
 
+/** Evento que lanza el banner de carga cuando se retira (ver components/Boot.tsx). */
+export const READY_EVENT = 'ml:ready';
+/**
+ * Línea de tiempo del logo, desde que se retira el banner (`ml:ready`):
+ *   0 s      empieza a irse el banner (0,56 s) y entra el texto del inicio. El logo sigue OCULTO.
+ *   1 s      el logo aparece de la nada, plano (2D): se le pone `data-shown` y entra con la transición de .hero__logo
+ *   2,2 s    el logo ya está del todo a la vista
+ *   3,4 s    empieza la transición lenta al 3D (`STAGES`), tras ~1,2 s de logo plano a la vista
+ * `APPEAR_MS` tiene que coincidir con la duración de esa transición en globals.css.
+ */
+const REVEAL_DELAY_MS = 1000;
+/** Si el logo se monta con el banner ya retirado (p. ej. al volver del relevamiento) casi no hay nada que esperar. */
+const REVEAL_RETURN_MS = 100;
+const APPEAR_MS = 1200;
+const HOLD_MS = 1200;
+
+/** ¿Ya se retiró el banner de carga (o no hay)? Mientras `<html data-boot="loading">`, el logo se queda plano. */
+const isReady = () => document.documentElement.dataset.boot !== 'loading';
+
 /**
  * Monta la escena sobre los dos canvas y mueve la marca. Devuelve la función que lo desmonta.
- * Se pausa cuando el logo sale de pantalla y, con "reducir movimiento", dibuja un solo cuadro en reposo.
+ *
+ * El logo está oculto (estado estático del CSS, desde el primer pintado) hasta que le toca aparecer: entonces se le pone
+ * `data-shown` al contenedor y entra plano (2D, la pose de marca). Pasado un rato a la vista, pasa al movimiento 3D de
+ * forma lenta y escalonada (`STAGES`, `TRANSITION_S` en total). Se pausa cuando el logo sale de pantalla y, con
+ * "reducir movimiento", aparece al instante y se queda en un solo cuadro plano.
  */
 export function startLogoScene(root: HTMLElement, back: HTMLCanvasElement, front: HTMLCanvasElement, mark: HTMLElement | SVGElement): () => void {
+  const wrap = root.parentElement;
+  let shown = false;
+  const show = () => {
+    if (shown) return;
+    shown = true;
+    wrap?.setAttribute('data-shown', '');
+  };
   const bctx = back.getContext('2d');
   const fctx = front.getContext('2d');
-  if (!bctx || !fctx) return () => {};
+  if (!bctx || !fctx) { show(); return () => {}; }
 
   const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const t0 = performance.now();
+  const waitedForBoot = !isReady();
   let layer = 0;
   let raf = 0;
   let onScreen = true;
-  let lastT = 0;
+  /** Instantes (ms) en que el logo aparece y en que empieza a animarse; -1 = todavía no hay fecha. Pueden ser futuros. */
+  let revealAt = -1;
+  let begunAt = -1;
+  let lastNow = 0;
 
-  const render = (t: number) => {
-    lastT = t;
+  const render = (now: number) => {
+    lastNow = now;
+    if (revealAt >= 0 && now >= revealAt) show();
     if (!layer) return;
-    const pose = drawScene(bctx, fctx, layer, t, mq.matches);
-    mark.style.transform = mq.matches ? '' : markTransform(pose.mark);
+    const flat = mq.matches || begunAt < 0;
+    const tau = flat ? 0 : Math.max(0, (now - begunAt) / 1000);
+    const pose = drawScene(bctx, fctx, layer, tau, mq.matches);
+    mark.style.transform = flat || tau <= 0 ? '' : markTransform(pose.mark);
   };
   const frame = (now: number) => {
     raf = 0;
-    render((now - t0) / 1000);
+    render(now);
     if (onScreen && !mq.matches) raf = requestAnimationFrame(frame);
   };
   const kick = () => {
-    if (mq.matches) { cancelAnimationFrame(raf); raf = 0; render(0); return; }
-    if (onScreen && !raf) raf = requestAnimationFrame(frame);
+    if (mq.matches) {
+      cancelAnimationFrame(raf);
+      raf = 0;
+      revealAt = begunAt = -1;
+      show();
+      render(performance.now());
+      return;
+    }
+    if (revealAt < 0 && isReady()) {
+      revealAt = performance.now() + (waitedForBoot ? REVEAL_DELAY_MS : REVEAL_RETURN_MS);
+      begunAt = revealAt + APPEAR_MS + HOLD_MS;
+    }
+    if (revealAt >= 0 && onScreen && !raf) raf = requestAnimationFrame(frame);
   };
   const fit = () => {
     const w = root.clientWidth;
@@ -514,7 +679,7 @@ export function startLogoScene(root: HTMLElement, back: HTMLCanvasElement, front
       cv.height = side;
       cx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
-    render(lastT);
+    render(lastNow || performance.now());
     kick();
   };
 
@@ -525,13 +690,17 @@ export function startLogoScene(root: HTMLElement, back: HTMLCanvasElement, front
     : null;
   io?.observe(root);
   mq.addEventListener('change', kick);
+  window.addEventListener(READY_EVENT, kick);
   fit();
+  kick();
 
   return () => {
     cancelAnimationFrame(raf);
     ro?.disconnect();
     io?.disconnect();
     mq.removeEventListener('change', kick);
+    window.removeEventListener(READY_EVENT, kick);
     mark.style.transform = '';
+    wrap?.removeAttribute('data-shown');
   };
 }

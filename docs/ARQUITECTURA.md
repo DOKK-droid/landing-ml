@@ -8,7 +8,7 @@
 | Persistencia | **Sin base de datos** | El registro vive en WhatsApp. El estado del formulario se guarda en `sessionStorage` para no perderlo al cambiar de idioma |
 | Canal | Enlace `wa.me/<número>?text=` | Funciona en móvil y escritorio sin la API de WhatsApp Business |
 | Idiomas | Rutas `/es/`, `/pt/`, `/en/`; `/` detecta el idioma del navegador | SEO con `hreflang`. Las respuestas guardan **ids**, no textos, y por eso sobreviven al cambio de idioma |
-| Diseño | Identidad de la v0 (fondo oscuro con brillos magenta/violeta/cian, malla de puntos y grano; Saira + IBM Plex Sans; logo 3D por CSS), sección "Tecnología pensada desde su negocio" con diagrama de arquitectura (se dibuja al entrar en pantalla y lleva a cada servicio), y láminas ilustradas con detalle al pasar el cursor | Comunica los servicios a simple vista, sin WebGL ni imágenes pesadas |
+| Diseño | Identidad de la v0 (fondo oscuro con brillos magenta/violeta/cian, malla de puntos y grano; Saira + IBM Plex Sans; logo 3D dibujado en canvas con geometría propia, banner de carga hasta que todo está listo), sección "Tecnología pensada desde su negocio" con diagrama de arquitectura (un barrido de reloj sigue al scroll y, al cerrarse con el diagrama entero a la vista, estalla la animación; lleva a cada servicio), y láminas ilustradas con detalle al pasar el cursor | Comunica los servicios a simple vista, sin WebGL ni imágenes pesadas |
 | Tipografía | Saira + IBM Plex Sans servidas desde el propio sitio (`@fontsource`) | Sin dependencia de Google Fonts y con mejor privacidad |
 | IA | Fuera de la v1 | Ver "Evolución" |
 
@@ -30,7 +30,9 @@ src/
 │  └─ useSurvey.ts           Hook: reducer + sessionStorage + mensaje derivado
 ├─ view/                     VISTA: componentes sin lógica de negocio
 │  ├─ App.tsx                Elige landing o relevamiento según la fase
-│  ├─ components/            Layout, Sections, Logo, Icons
+│  ├─ components/            Layout, Sections, Logo, Icons, HeroDiagram (reloj con el scroll), Boot (banner de carga)
+│  ├─ logoScene.ts           Escena 3D del logo (globo, aros, arcos) en dos canvas; matemática pura y testeada
+│  ├─ clock.ts               Matemática del reloj del diagrama (progreso por scroll, inercia, elipse)
 │  └─ survey/                SurveyView · Chat (banda + vista previa + respuesta) · Composer (pregunta y chips o texto) · Preview
 ├─ app/                      Rutas Next (sólo composición)
 └─ (raíz)
