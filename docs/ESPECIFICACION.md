@@ -33,7 +33,7 @@ Identidad compartida con la tarjeta (definida en `src/styles/globals.css`): fond
 - Landing en `es`, `pt` y `en` (`/es/`, `/pt/`, `/en/`); `/` detecta el idioma del navegador.
 - Selección de uno o varios servicios, relevamiento guiado, revisión editable y envío por WhatsApp.
 - Atajo de **Emergencia 24/7**: botón flotante que abre WhatsApp con un mensaje breve (nombre, lugar, qué pasa y si es remoto o presencial), sin pasar por el relevamiento.
-- **Oferta del relevamiento técnico**: USD 9 **por cada 10 minutos de reunión** (no por reunión), con el precio original (USD 12, −25 %) tachado. El total depende de cuánto dure: 30 min = USD 27, 1 h = USD 54, 3 h = USD 162 (18 bloques; antes USD 216). Se muestra en el inicio y en la sección *Relevamiento técnico*, con esos tres ejemplos calculados por `meetingCost()`, y queda registrada en el mensaje cuando el pedido incluye algo distinto de Soporte. Precio por bloque, duración del bloque y moneda salen de `site.consulta`. Un tramo incompleto cuenta como un bloque más (regla del cálculo; los ejemplos mostrados son múltiplos exactos). Sin fecha de fin: no se muestra ninguna cuenta regresiva.
+- **Oferta del relevamiento técnico, por tramos**: la reunión se mide en bloques de 10 minutos (un bloque incompleto cuenta como uno entero) y cada bloque cuesta lo que marca el tramo donde empieza: **menos de 1 h, tarifa normal de USD 12**; **desde 1 h, USD 9**; **USD 8 los bloques que pasan de las 2 h** y **USD 7 los que pasan de las 3 h 30** (los bloques anteriores no se recalculan, así que desde 1 h el total siempre sube con la duración). El precio que se muestra es **el de la hora** (USD 54, antes USD 72 tachado, −25 %) con su **equivalencia por bloque** (USD 9 cada 10 min, antes USD 12) y una tabla de tramos con ambos valores (USD 12 cada 10 min = USD 72 la hora; USD 9 = USD 54; USD 8 = USD 48; USD 7 = USD 42); lo que se cobra es el total por tramos. Ejemplos: 30 min = USD 36 (tarifa normal), 1 h = USD 54, 2 h = USD 108, 4 h = USD 201 (24 bloques: 12 × 9 + 9 × 8 + 3 × 7). Menos de 1 h cuesta más que 1 h a propósito: la hora entera es el mínimo con oferta. Se muestra en el inicio (el aviso, con el precio de la hora) y en la sección *Relevamiento técnico*: la hora y su equivalencia por bloque, la tabla de tramos y cuatro ejemplos de total calculados por `meetingCost()`; y queda registrada en el mensaje cuando el pedido incluye algo distinto de Soporte. El largo del bloque, el precio de oferta, la tarifa normal, desde cuándo rige y los tramos salen de `site.consulta`. Un bloque incompleto cuenta como uno entero (59 min = 6 bloques). Sin fecha de fin: no se muestra ninguna cuenta regresiva.
 - Sitio 100 % estático (`output: 'export'`), publicado en Vercel.
 
 **Fuera (por decisión)**
@@ -47,12 +47,12 @@ Identidad compartida con la tarjeta (definida en `src/styles/globals.css`): fond
 |---|---|---|
 | Cliente que consulta | Explicar su necesidad sin saber de tecnología | Elige servicios y responde preguntas en lenguaje de negocio |
 | Cliente con urgencia | Ayuda técnica ya, en remoto o presencial | Botón **Emergencia 24/7** → WhatsApp directo |
-| Cliente que busca asesoría | Una respuesta puntual sin compromiso grande | Oferta de **relevamiento técnico a USD 9 cada 10 min**; la conversación guiada prepara la reunión |
+| Cliente que busca asesoría | Una respuesta puntual sin compromiso grande | Oferta de **relevamiento técnico por tramos (USD 54 la hora = USD 9 cada 10 min)**; la conversación guiada prepara la reunión |
 | Mariano | Llegar a la videollamada con contexto y saber de dónde vino | Recibe un mensaje estructurado con referencia `ML-AAMMDD-XXXX`, versión del formulario y origen |
 
 ## 5. Flujo del usuario
 
-1. **Landing**: propuesta con el aviso del relevamiento técnico (USD 9 cada 10 min), diagrama "Tecnología pensada desde su negocio", servicios (con detalle de lo que incluyen y qué conviene contar), la sección de la oferta con el costo total según la duración, y el enfoque de trabajo. Se marcan uno o más servicios y se pulsa continuar. El detalle de cada servicio se abre al pasar el cursor o al enfocar con teclado en escritorio (con un contorno degradado del color del servicio que aparece suave y el contenido entrando escalonado), y con el botón *Ver detalles* en táctil.
+1. **Landing**: propuesta con el aviso del relevamiento técnico (USD 54 la hora), diagrama "Tecnología pensada desde su negocio", servicios (con detalle de lo que incluyen y qué conviene contar), la sección de la oferta con el costo total según la duración, y el enfoque de trabajo. Se marcan uno o más servicios y se pulsa continuar. El detalle de cada servicio se abre al pasar el cursor o al enfocar con teclado en escritorio (con un contorno degradado del color del servicio que aparece suave y el contenido entrando escalonado), y con el botón *Ver detalles* en táctil.
 2. **Relevamiento como conversación guiada**, una pregunta por vez, con barra de progreso por secciones:
    1. *Su actividad*: solo tres datos, todos obligatorios y de respuesta rápida: a qué se dedica, cuántas personas trabajan y cuántas sucursales u oficinas tiene.
    2. Una sección **por cada servicio elegido**, en el orden del catálogo: la información crítica (problema, objetivo, qué pasa).
@@ -94,7 +94,7 @@ Hola Mariano, soy Ana Pérez. Quiero hacer una consulta.
 
 *RELEVAMIENTO INICIAL* · Ref. ML-261120-DDDD
 *Servicios de interés:* Desarrollo de Software
-*Consulta:* USD 9 cada 10 min de relevamiento técnico (oferta; precio original USD 12)
+*Consulta:* USD 54 la hora (USD 9 cada 10 min), oferta desde 1 h; precio normal USD 72 la hora; total por tramos
 
 *1. Su actividad*
 • A qué se dedica la organización: Comercio minorista de ferretería
@@ -221,7 +221,7 @@ Mejoras detectadas en el código:
 - Un cliente completa el recorrido mínimo (1 servicio, 8 obligatorios) en menos de 3 minutos desde un celular.
 - Ve una pregunta por vez, con la sección en curso bien visible, y desde la primera la vista previa del mensaje y qué datos clave le faltan.
 - Los datos de contacto se piden al final; el paso 1 pregunta solo actividad, personas y sucursales.
-- La oferta (USD 9 cada 10 min de relevamiento técnico, antes USD 12; 3 h = USD 162) se ve en el inicio y en su sección, y queda registrada en el mensaje salvo en pedidos solo de Soporte.
+- La oferta por tramos (USD 54 la hora = USD 9 cada 10 min de relevamiento técnico, normal USD 72 la hora = USD 12; 4 h = USD 201) se ve en el inicio y en su sección, y queda registrada en el mensaje salvo en pedidos solo de Soporte.
 - El mensaje llega a WhatsApp con referencia, servicios y respuestas legibles, y puede editarse antes de enviar.
 - Cambiar de idioma a mitad del relevamiento no pierde respuestas ni muestra la landing por un instante (probar con el build de producción).
 - Con JavaScript deshabilitado, `/` redirige a `/es/` y ofrece enlaces a los otros dos idiomas.

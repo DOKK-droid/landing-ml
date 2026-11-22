@@ -13,6 +13,9 @@
  * Las medidas están en unidades del viewBox del logo (228 de ancho, origen en el centro de la capa).
  *
  * Este módulo no toca el DOM salvo `startLogoScene`. Con "reducir movimiento" se dibuja un solo cuadro en reposo. */
+import { IN_AT, OUT_DONE, PERIOD_MS, SETTLE_T, createSweep } from './logoSweep';
+import { trailParallax } from './logoTrail';
+
 
 export type V3 = readonly [number, number, number];
 export type M3 = readonly [number, number, number, number, number, number, number, number, number];
@@ -201,7 +204,9 @@ const depthT = (z: number) => clamp01(0.5 + z / (2 * ZMAX));
 const SILVER: (lam: number, zn: number) => RGB = (lam, zn) =>
   mixc(BG, mixc([62, 72, 92], [246, 249, 253], clamp01(0.1 + 0.95 * lam)), 0.55 + 0.45 * zn);
 
-const RAMP: [number, RGB][] = [[0, [255, 62, 165]], [0.45, [138, 60, 255]], [1, [0, 224, 255]]];
+/** El violeta del logotipo: el del medio de los arcos. La estela de la marca (logoTrail.VIOLET) y `--violet` del CSS usan este mismo. */
+export const VIOLET: RGB = [138, 60, 255];
+const RAMP: [number, RGB][] = [[0, [255, 62, 165]], [0.45, VIOLET], [1, [0, 224, 255]]];
 function ramp(g: number): RGB {
   const x = clamp01(g);
   for (let i = 1; i < RAMP.length; i++) {
@@ -595,16 +600,107 @@ export const READY_EVENT = 'ml:ready';
 /**
  * Línea de tiempo del logo, desde que se retira el banner (`ml:ready`):
  *   0 s      empieza a irse el banner (0,56 s) y entra el texto del inicio. El logo sigue OCULTO.
- *   1 s      el logo aparece de la nada, plano (2D): se le pone `data-shown` y entra con la transición de .hero__logo
- *   2,2 s    el logo ya está del todo a la vista
- *   3,4 s    empieza la transición lenta al 3D (`STAGES`), tras ~1,2 s de logo plano a la vista
- * `APPEAR_MS` tiene que coincidir con la duración de esa transición en globals.css.
+ *   1 s      el logo aparece, plano (2D): se le pone `data-shown` y empieza el BARRIDO (view/logoSweep.ts): aparece con un barrido que sigue sus
+ *            trazos de la estela a la L y se borra con otro que arranca antes de que el primero termine; así `SWEEP_CYCLES_AFTER_BOOT` veces
+ *            (la escala entra a la vez: `APPEAR_MS`)
+ *   +`flatMs`  el logo acaba de borrarse por última vez y, un instante después (`BEAT_MS`), empieza el 3D (`STAGES`) con la marca OCULTA: primero
+ *            gira el globo y se despliegan los arcos
+ *   +`FINAL_DELAY_MS` más tarde, justo cuando la marca empieza a inclinarse (`STAGES.mark`), el logo APARECE una última vez con el barrido, ya en 3D;
+ *            al acabar se sueltan las máscaras (`sweepEndMs`) y queda entero para siempre
+ * Con el banner ya retirado (se vuelve al inicio) no hay bucles: el barrido aparece UNA vez, el logo se mantiene y el 3D empieza `APPEAR_MS + HOLD_MS`
+ * después, con el logo entero, como siempre. `APPEAR_MS` tiene que coincidir con la duración de la transición de la escala en globals.css.
  */
 const REVEAL_DELAY_MS = 1000;
 /** Si el logo se monta con el banner ya retirado (p. ej. al volver del relevamiento) casi no hay nada que esperar. */
 const REVEAL_RETURN_MS = 100;
 const APPEAR_MS = 1200;
 const HOLD_MS = 1200;
+/** Bucles enteros del barrido (aparecer y borrarse) que hace el logo plano, tras venir del banner de carga, antes de empezar el 3D. */
+export const SWEEP_CYCLES_AFTER_BOOT = 2;
+/** Pausa con el logo ya borrado entre el final del último bucle y el comienzo del 3D (ms). */
+export const BEAT_MS = 150;
+/**
+ * Cuánto después de empezar el 3D aparece el logo por última vez (ms, medido hasta que arranca el frente del barrido): cuando la marca empieza a
+ * inclinarse (`STAGES.mark.delay`), así se ve primero el 3D (el globo, los arcos) y el logo entra al inclinarse.
+ */
+export const FINAL_DELAY_MS = STAGES.mark.delay * 1000;
+/**
+ * Cuándo empieza el 3D (ms desde que aparece el logo). Con bucles: justo después de que el último termine de borrarse el logo. Sin ellos: el
+ * logo aparece una vez y se mantiene lo de siempre (`APPEAR_MS` + `HOLD_MS`).
+ */
+export const flatMs = (cycles: number) => (cycles > 0 ? (cycles - 1) * PERIOD_MS + OUT_DONE + BEAT_MS : APPEAR_MS + HOLD_MS);
+/** Cuándo (ms desde que aparece el logo) arranca el reloj de la última aparición: su frente sale `IN_AT` después. */
+const finalAt = (cycles: number) => flatMs(cycles) + FINAL_DELAY_MS - IN_AT;
+/** Cuándo termina todo el barrido (ms desde que aparece el logo) y se sueltan las máscaras: tras la última aparición, con el logo entero y sin luz. */
+export const sweepEndMs = (cycles: number) => (cycles > 0 ? finalAt(cycles) + SETTLE_T : flatMs(cycles));
+/**
+ * Instante del barrido a los `elapsed` ms de haber aparecido el logo: `t` (ms del periodo) y si es solo aparición (`once`, sin borrado). Con
+ * bucles: ciclos completos (aparece y se borra) hasta el último borrado, borrado mientras empieza el 3D, y la última aparición, que no se borra.
+ * Sin bucles: aparece una vez y se queda entero.
+ */
+export function sweepTime(elapsed: number, cycles: number): { t: number; once: boolean } {
+  if (cycles <= 0) return { t: Math.min(elapsed, SETTLE_T), once: true };
+  if (elapsed < (cycles - 1) * PERIOD_MS + OUT_DONE) return { t: elapsed % PERIOD_MS, once: false };
+  const start = finalAt(cycles);
+  return elapsed < start ? { t: OUT_DONE + 20, once: false } : { t: Math.min(elapsed - start, SETTLE_T), once: true };
+}
+
+// ---------------------------------------------------------------- el globo solo (para el banner de carga)
+
+/** Segundos que tarda el globo del banner en dar una vuelta: más rápido que el del inicio, para que se note mientras se espera. */
+export const BANNER_GLOBE_PERIOD = 9;
+
+/**
+ * Dibuja SOLO el globo (sin aros, arcos ni marca) con el mismo dibujo del inicio. `layer` es el ancho en px de la capa (el canvas mide
+ * `layer * (1 + 2 * CANVAS_PAD)` y su centro es el de la capa) y `t` son segundos: el globo da una vuelta cada `period`.
+ */
+export function drawGlobeOnly(ctx: Ctx, layer: number, t: number, period = BANNER_GLOBE_PERIOD) {
+  const u = layer / VB;
+  const size = layer * (1 + 2 * CANVAS_PAD);
+  const fr: Frame = { c: size / 2, u, D: PERSPECTIVE_PX / u, plane: markPlane({ a: 0, b: 0, ty: 0 }, u), glows: [] };
+  ctx.clearRect(0, 0, size, size);
+  drawGlobe(ctx, fr, mul(GLOBE_TILT, rotAxis(AX_Y, (TAU * t) / period)));
+}
+
+/**
+ * Anima el globo en un canvas dentro de `box` (el banner de carga). El canvas se dimensiona como el de la escena del inicio: con margen
+ * y densidad de pantalla (hasta 2x). Con "reducir movimiento" dibuja un solo cuadro. Devuelve la función que lo detiene.
+ */
+export function startGlobe(box: HTMLElement, canvas: HTMLCanvasElement): () => void {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return () => {};
+  const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const t0 = performance.now();
+  let layer = 0;
+  let raf = 0;
+  let alive = true;
+  const draw = (now: number) => { if (layer) drawGlobeOnly(ctx, layer, mq.matches ? 0 : (now - t0) / 1000); };
+  const fit = () => {
+    layer = box.clientWidth;
+    if (!layer) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const side = Math.round(layer * (1 + 2 * CANVAS_PAD) * dpr);
+    canvas.width = side;
+    canvas.height = side;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw(performance.now());
+  };
+  const frame = (now: number) => {
+    raf = 0;
+    if (!alive) return; // un cuadro ya pedido que llega después de detenerlo no debe pintar ni pedir otro
+    draw(now);
+    if (!mq.matches) raf = requestAnimationFrame(frame);
+  };
+  fit();
+  const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => { if (alive) fit(); });
+  ro?.observe(box);
+  if (!mq.matches) raf = requestAnimationFrame(frame);
+  return () => {
+    alive = false;
+    cancelAnimationFrame(raf);
+    ro?.disconnect();
+  };
+}
 
 /** ¿Ya se retiró el banner de carga (o no hay)? Mientras `<html data-boot="loading">`, el logo se queda plano. */
 const isReady = () => document.documentElement.dataset.boot !== 'loading';
@@ -613,8 +709,8 @@ const isReady = () => document.documentElement.dataset.boot !== 'loading';
  * Monta la escena sobre los dos canvas y mueve la marca. Devuelve la función que lo desmonta.
  *
  * El logo está oculto (estado estático del CSS, desde el primer pintado) hasta que le toca aparecer: entonces se le pone
- * `data-shown` al contenedor y entra plano (2D, la pose de marca). Pasado un rato a la vista, pasa al movimiento 3D de
- * forma lenta y escalonada (`STAGES`, `TRANSITION_S` en total). Se pausa cuando el logo sale de pantalla y, con
+ * `data-shown` al contenedor y entra plano (2D, la pose de marca) con el barrido (línea de tiempo arriba: bucles de aparecer y borrarse, el 3D
+ * con la marca oculta y una última aparición). El 3D es lento y escalonado (`STAGES`, `TRANSITION_S` en total). Se pausa cuando el logo sale de pantalla y, con
  * "reducir movimiento", aparece al instante y se queda en un solo cuadro plano.
  */
 export function startLogoScene(root: HTMLElement, back: HTMLCanvasElement, front: HTMLCanvasElement, mark: HTMLElement | SVGElement): () => void {
@@ -629,8 +725,33 @@ export function startLogoScene(root: HTMLElement, back: HTMLCanvasElement, front
   const fctx = front.getContext('2d');
   if (!bctx || !fctx) { show(); return () => {}; }
 
+  /* Capas de profundidad de la estela (<g data-z> dentro de la marca): al inclinarse la marca cada una se desplaza como si de
+   * verdad estuviera a su distancia del plano (paralaje). Se mueve el atributo `transform` de SVG (no `style`, que la CSP no
+   * admite) y, para no repintar el SVG entero en cada cuadro, solo cuando el desplazamiento cambia un paso (0,2 unidades). */
+  const depth = Array.from(mark.querySelectorAll('[data-z]'), (el) => ({ el, z: Number(el.getAttribute('data-z')) || 0, shift: '' }));
+  const shiftDepth = (m: MarkPose | null) => {
+    for (const d of depth) {
+      let next = '';
+      if (m) {
+        // Solo el horizontal: el vertical (≤ 1 unidad con el cabeceo de 4°) abriría rendijas entre las líneas justo donde se
+        // unen a la pata, que deben seguir macizas.
+        const sx = Math.round(trailParallax(m, d.z).dx / 0.2) * 0.2;
+        if (sx !== 0) next = `translate(${sx.toFixed(1)} 0)`;
+      }
+      if (next === d.shift) continue;
+      d.shift = next;
+      if (next) d.el.setAttribute('transform', next);
+      else d.el.removeAttribute('transform');
+    }
+  };
+
   const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
   const waitedForBoot = !isReady();
+  /* El barrido del logo plano (si el logo lo lleva): sus degradados están en el SVG del halo y sus máscaras en el de la marca, por eso se busca en
+   * `root`, que contiene los dos. Se mueve desde este mismo bucle de cuadros, a la hora de la aparición, para que el 3D empiece justo después. */
+  const sweep = createSweep(root);
+  const cycles = waitedForBoot ? SWEEP_CYCLES_AFTER_BOOT : 0;
+  let released = false;
   let layer = 0;
   let raf = 0;
   let onScreen = true;
@@ -641,12 +762,21 @@ export function startLogoScene(root: HTMLElement, back: HTMLCanvasElement, front
 
   const render = (now: number) => {
     lastNow = now;
+    if (sweep && revealAt >= 0 && now >= revealAt) {
+      if (now >= revealAt + sweepEndMs(cycles)) {
+        if (!released) { sweep.release(); released = true; } // acabó la última aparición: el logo entero y sin máscaras
+      } else {
+        const sw = sweepTime(now - revealAt, cycles);
+        sweep.write(sw.t, sw.once); // antes de mostrarlo: el primer cuadro lo encuentra ya oculto, sin destello
+      }
+    }
     if (revealAt >= 0 && now >= revealAt) show();
     if (!layer) return;
     const flat = mq.matches || begunAt < 0;
     const tau = flat ? 0 : Math.max(0, (now - begunAt) / 1000);
     const pose = drawScene(bctx, fctx, layer, tau, mq.matches);
     mark.style.transform = flat || tau <= 0 ? '' : markTransform(pose.mark);
+    shiftDepth(flat || tau <= 0 ? null : pose.mark);
   };
   const frame = (now: number) => {
     raf = 0;
@@ -658,13 +788,16 @@ export function startLogoScene(root: HTMLElement, back: HTMLCanvasElement, front
       cancelAnimationFrame(raf);
       raf = 0;
       revealAt = begunAt = -1;
+      sweep?.release(); // con "reducir movimiento" no hay barrido: el logo entero y quieto
+      released = true;
       show();
       render(performance.now());
       return;
     }
     if (revealAt < 0 && isReady()) {
       revealAt = performance.now() + (waitedForBoot ? REVEAL_DELAY_MS : REVEAL_RETURN_MS);
-      begunAt = revealAt + APPEAR_MS + HOLD_MS;
+      begunAt = revealAt + flatMs(cycles);
+      if (released) { sweep?.restore(); released = false; }
     }
     if (revealAt >= 0 && onScreen && !raf) raf = requestAnimationFrame(frame);
   };
@@ -701,6 +834,8 @@ export function startLogoScene(root: HTMLElement, back: HTMLCanvasElement, front
     mq.removeEventListener('change', kick);
     window.removeEventListener(READY_EVENT, kick);
     mark.style.transform = '';
+    shiftDepth(null);
+    sweep?.restore(); // si el componente se vuelve a montar encuentra el logo entero y con sus máscaras
     wrap?.removeAttribute('data-shown');
   };
 }

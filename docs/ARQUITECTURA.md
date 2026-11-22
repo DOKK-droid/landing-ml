@@ -24,17 +24,20 @@ src/
 │  ├─ flow.ts                Aplana las secciones en una lista de preguntas (una por vez)
 │  ├─ offer.ts               Oferta del relevamiento técnico: precio por bloque, costo total
 │  ├─ validation.ts          Reglas de obligatoriedad (por pregunta) y avance de datos clave
+│  ├─ seo.ts                 Direcciones por idioma, hreflang y datos estructurados JSON-LD (ver SEO.md)
 │  └─ message.ts             buildMessage · buildWhatsAppUrl · createReference
 ├─ controller/               CONTROLADOR
 │  ├─ surveyReducer.ts       Máquina de estados pura (testeada)
 │  └─ useSurvey.ts           Hook: reducer + sessionStorage + mensaje derivado
 ├─ view/                     VISTA: componentes sin lógica de negocio
 │  ├─ App.tsx                Elige landing o relevamiento según la fase
-│  ├─ components/            Layout, Sections, Logo, Icons, HeroDiagram (reloj con el scroll), Boot (banner de carga)
+│  ├─ components/            Layout, Sections, Logo, Icons, HeroDiagram (reloj con el scroll), Boot (banner de carga con el globo, el barrido del logo y los destellos de la estela)
 │  ├─ logoScene.ts           Escena 3D del logo (globo, aros, arcos) en dos canvas; matemática pura y testeada
 │  ├─ clock.ts               Matemática del reloj del diagrama (progreso por scroll, inercia, elipse)
+│  ├─ logoTrail.ts           Estela de la marca: la pata de la M (de cromo, teñida de lila) prolongada como pie de otra L, con una esquina viva y una diagonal de sombra oscura que baja bajo el renglón; un solo degradado; paralaje por línea; el eje de cada línea (`trailFlowPath`) por donde corre el destello del banner
+│  ├─ logoSweep.ts           Barrido del logo (banner de carga y logo plano del inicio): ML aparece con un barrido que empieza por la estela y sigue sus trazos hasta la punta de la L y se borra con otro igual que arranca antes de que el primero termine (los dos aceleran), en bucle (geometría de los tramos, cronología, `createSweep`, que escribe en el DOM lo que se ve y la luz del frente, y `startSweep`, que lo mueve en bucle en el banner; en el inicio lo mueve la escena de logoScene.ts desde su bucle de cuadros)
 │  └─ survey/                SurveyView · Chat (banda + vista previa + respuesta) · Composer (pregunta y chips o texto) · Preview
-├─ app/                      Rutas Next (sólo composición)
+├─ app/                      Rutas Next (sólo composición); robots.ts y sitemap.ts generan robots.txt y sitemap.xml
 └─ (raíz)
    ├─ scripts/               Endurecimiento posterior al build y verificador (ver SEGURIDAD.md)
    ├─ .github/               CI, verificación programada del sitio publicado y Dependabot

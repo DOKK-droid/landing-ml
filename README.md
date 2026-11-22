@@ -5,6 +5,7 @@ Sitio de Mariano Lemos Barbaro. El cliente elige uno o varios servicios y respon
 - Next.js 16 · TypeScript · CSS puro · ilustraciones SVG propias (`src/view/components/ServiceArt.tsx`) · sin base de datos · export estático
 - Español, portugués e inglés (`/es/`, `/pt/`, `/en/`)
 - Arquitectura MVC: ver [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md)
+- SEO (robots.txt, sitemap, hreflang, datos estructurados) y qué hacer después de publicar: [docs/SEO.md](docs/SEO.md)
 
 ## Desarrollo
 

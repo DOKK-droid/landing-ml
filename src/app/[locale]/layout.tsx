@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { site } from '@/config/site';
 import { resumeScript } from '@/controller/resume';
 import { DICTIONARIES } from '@/model/i18n';
+import { OG_LOCALE, hreflangPaths, localePath } from '@/model/seo';
 import { LOCALES, isLocale } from '@/model/types';
 import { Boot } from '@/view/components/Boot';
 import '@fontsource-variable/saira';
@@ -26,10 +27,19 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     title: d.title,
     description: d.description,
     alternates: {
-      canonical: `/${locale}/`,
-      languages: Object.fromEntries(LOCALES.map((l) => [l, `/${l}/`])),
+      canonical: localePath(locale),
+      // es, pt, en y x-default (la página para quien no coincide con ninguno: el español).
+      languages: hreflangPaths(),
     },
-    openGraph: { title: d.title, description: d.description, type: 'website', locale, url: `/${locale}/` },
+    openGraph: {
+      title: d.title,
+      description: d.description,
+      type: 'website',
+      siteName: site.owner,
+      locale: OG_LOCALE[locale],
+      alternateLocale: LOCALES.filter((l) => l !== locale).map((l) => OG_LOCALE[l]),
+      url: localePath(locale),
+    },
     icons: { icon: '/favicon.svg' },
   };
 }

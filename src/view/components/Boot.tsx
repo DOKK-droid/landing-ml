@@ -6,16 +6,24 @@
  * Al retirarse marca <html data-boot="ready"> —lo que arranca la entrada del inicio— y avisa con `ml:ready`, que es la
  * señal para que el logo pase de 2D a 3D. Mientras tanto la entrada del inicio espera detrás del banner para que no
  * se pierda. Sin JavaScript el banner no se muestra y, si el script falla, una animación CSS lo oculta a los 10 s
- * (ver .boot en globals.css). Con "reducir movimiento" se retira sin transición. */
+ * (ver .boot en globals.css). Con "reducir movimiento" se retira sin transición.
+ *
+ * El banner muestra el mismo globo que gira detrás del logo en el inicio (el círculo de alrededor ES el globo, dibujado con el mismo
+ * código: view/logoScene.ts) y el barrido de ML (view/logoSweep.ts): el logo aparece con un barrido que empieza por la estela y sigue sus trazos
+ * hasta la punta de la L y se borra con otro igual que arranca antes de que el primero termine, en bucle: intermitente y fluido. La estela, mientras tanto, lleva destellos que corren por sus líneas. */
 import { useEffect, useRef, useState } from 'react';
 import { DICTIONARIES } from '@/model/i18n';
 import type { Locale } from '@/model/types';
-import { READY_EVENT } from '../logoScene';
+import { OUT_DONE, startSweep } from '../logoSweep';
+import { READY_EVENT, startGlobe } from '../logoScene';
 import { prefersReducedMotion } from '../motion';
 import { Logo } from './Logo';
 
-/** Tiempo mínimo en la primera carga de la sesión; después, con todo en caché, casi no hace falta. */
-const MIN_FIRST_MS = 650;
+/**
+ * Tiempo mínimo en la primera carga de la sesión: el justo para ver UN ciclo entero del logo (aparece y se borra: `OUT_DONE` en
+ * view/logoSweep.ts); después, con todo en caché, casi no hace falta. Si la carga tarda más, el ciclo se repite.
+ */
+export const MIN_FIRST_MS = Math.ceil((OUT_DONE + 60) / 100) * 100;
 const MIN_RETURN_MS = 120;
 /** Si algo no termina (una fuente que no llega), el banner se retira igual. Menos que la red de seguridad de CSS (10 s). */
 const MAX_MS = 8000;
@@ -27,7 +35,24 @@ const SEEN_KEY = 'ml-booted';
 export function Boot({ locale }: { locale: Locale }) {
   const d = DICTIONARIES[locale].boot;
   const barRef = useRef<HTMLElement>(null);
+  const markRef = useRef<HTMLDivElement>(null);
+  const globeRef = useRef<HTMLCanvasElement>(null);
   const [phase, setPhase] = useState<'loading' | 'leaving' | 'gone'>('loading');
+  const gone = phase === 'gone';
+
+  // El globo gira mientras el banner está a la vista; al retirarse se detiene (el componente sigue montado, sin pintar nada).
+  useEffect(() => {
+    const box = markRef.current, canvas = globeRef.current;
+    if (gone || !box || !canvas) return;
+    return startGlobe(box, canvas);
+  }, [gone]);
+
+  // El logo aparece con un barrido y se borra con otro que arranca antes de que el primero termine, en bucle; se detiene igual.
+  useEffect(() => {
+    const box = markRef.current;
+    if (gone || !box) return;
+    return startSweep(box);
+  }, [gone]);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -84,12 +109,11 @@ export function Boot({ locale }: { locale: Locale }) {
   return (
     <div className={`boot${phase === 'leaving' ? ' is-leaving' : ''}`} role="status" aria-live="polite">
       <div className="boot__inner">
-        <div className="boot__mark" aria-hidden="true">
-          <svg className="boot__ring" viewBox="0 0 100 100">
-            <circle className="boot__track" cx="50" cy="50" r="46" />
-            <circle className="boot__arc" cx="50" cy="50" r="46" />
-          </svg>
-          <Logo className="boot__logo" />
+        <div className="boot__mark" ref={markRef} aria-hidden="true">
+          <canvas ref={globeRef} className="logo3d__cv" />
+          <div className="boot__ml">
+            <Logo className="boot__logo" flow sweep="hidden" />
+          </div>
         </div>
         <p className="boot__label">{d.label}</p>
         <div className="boot__bar" aria-hidden="true"><i ref={barRef} /></div>

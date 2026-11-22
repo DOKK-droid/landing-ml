@@ -247,7 +247,7 @@ En ERPNext y en la app Frappe CRM, una consulta que llega por primera vez es un 
 | Servicios de interés | Campo de selección múltiple o tabla hija (`Service Interest`) |
 | Respuestas del relevamiento | Un campo JSON o texto con el mensaje, más la versión del formulario; las claves son ids estables, no textos |
 | Referencia, versión del formulario, idioma, origen (`tarjeta`) | Campos propios del Lead (`reference`, `form_version`, `language`, `source`) |
-| Oferta vista (USD 9 por bloque de 10 min) | Campo propio |
+| Oferta vista (USD 54 la hora = USD 9 cada 10 min; total por tramos) | Campo propio |
 
 ### 7.4 Arquitectura: tres opciones
 

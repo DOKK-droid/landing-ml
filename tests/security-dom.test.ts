@@ -10,11 +10,18 @@ import { hardenHtml, inlineScripts, inlineStyles, parseCsp, sri } from '../scrip
 const parse = (html: string) => new DOMParser().parseFromString(html, 'text/html');
 const hash = (text: string) => `'${sri(Buffer.from(text, 'utf8'))}'`;
 
+/** ¿El navegador ejecutaría este <script>? Sin `type`, con un tipo de JavaScript o `module`, sí. Con otro tipo (p. ej.
+ *  `application/ld+json`) es un bloque de datos: no se ejecuta y la política de contenido no lo evalúa. */
+const executes = (e: Element) => {
+  const type = e.getAttribute('type')?.trim().toLowerCase();
+  return !type || type === 'module' || /^(text|application)\/(x-)?(java|ecma)script$/.test(type);
+};
+
 /** Lo que el navegador tendría que encontrar permitido en la política de una página. */
 function seenByBrowser(html: string) {
   const doc = parse(html);
   return {
-    scripts: [...doc.querySelectorAll('script:not([src])')].map((e) => e.textContent ?? '').filter((t) => t !== ''),
+    scripts: [...doc.querySelectorAll('script:not([src])')].filter(executes).map((e) => e.textContent ?? '').filter((t) => t !== ''),
     styleElements: [...doc.querySelectorAll('style')].map((e) => e.textContent ?? '').filter((t) => t !== ''),
     styleAttributes: [...doc.querySelectorAll('[style]')].map((e) => e.getAttribute('style') ?? '').filter((t) => t !== ''),
     csp: parseCsp(doc.querySelector('meta[http-equiv="Content-Security-Policy"]')?.getAttribute('content') ?? ''),
@@ -22,7 +29,8 @@ function seenByBrowser(html: string) {
 }
 
 describe('el lector de HTML del verificador coincide con el del navegador', () => {
-  const TRICKY = `<head><script>var a = "<b style=\\"x\\">";</script><style>.a{color:red}</style></head>
+  // Incluye un bloque de datos (JSON-LD): los dos lectores deben coincidir en que no es un script a ejecutar.
+  const TRICKY = `<head><script>var a = "<b style=\\"x\\">";</script><script type="application/ld+json">{"name":"a \\u0026 b"}</script><style>.a{color:red}</style></head>
 <body><div style="font-family:system-ui,&quot;Segoe UI&quot;;--x:a&amp;b"></div>
 <svg style='fill:url(&#x23;g)'><g style="--i:0"></g></svg><p STYLE="--c:#fff">x</p></body>`;
 

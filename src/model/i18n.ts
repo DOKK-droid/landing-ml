@@ -1,6 +1,7 @@
 /* ============================================================
  * MODELO — Textos de interfaz por idioma.
  * ============================================================ */
+import type { OfferFigures } from './offer';
 import type { Locale } from './types';
 
 export interface Dictionary {
@@ -13,9 +14,13 @@ export interface Dictionary {
   boot: { label: string };
   emergency: { label: string; message: string };
   consulta: {
-    badge: string; title: (minutes: number) => string; lead: string; billing: (minutes: number) => string;
-    per: (minutes: number) => string; perShort: (minutes: number) => string;
-    off: (percent: number) => string; srPrice: (price: string, original: string, minutes: number) => string;
+    badge: string; title: string; lead: string; billing: (minutes: number, from: string) => string;
+    /** Rótulo del precio de la hora, la equivalencia por bloque y la versión corta del aviso del inicio. */
+    perHour: string; hourShort: string; equals: (f: OfferFigures) => string;
+    off: (percent: number) => string; srPrice: (f: OfferFigures) => string;
+    /** Tarifa por tramos: título de la tabla y rótulo de cada fila. Las duraciones llegan ya formateadas ("1 h", "3 h 30 min"). */
+    tiersTitle: (minutes: number) => string; tierBelow: (to: string) => string;
+    tierBetween: (from: string, to: string) => string; tierFrom: (from: string) => string;
     examples: string; was: string; support: string; supportLink: string; cta: string; hero: string;
   };
   preview: {
@@ -41,7 +46,7 @@ export interface Dictionary {
   };
   message: {
     greeting: string; greetingNamed: (name: string) => string; title: string; ref: string; services: string;
-    consult: string; consultValue: (minutes: number, price: string, original: string) => string;
+    consult: string; consultValue: (f: OfferFigures) => string;
     origin: string; footer: string; closing: string;
   };
   footer: { privacy: string; rights: (year: number) => string; whatsapp: string; email: string; linkedin: string };
@@ -75,13 +80,18 @@ const es: Dictionary = {
   },
   consulta: {
     badge: 'Oferta',
-    title: (m) => `Relevamiento técnico por bloques de ${m} minutos`,
+    title: 'Relevamiento técnico, con tarifa por tramos',
     lead: 'Toda asesoría empieza con un relevamiento técnico por videollamada: usted cuenta su situación y definimos juntos los próximos pasos. Vale para software, sistemas, gestión, infraestructura o inteligencia artificial.',
-    billing: (m) => `El precio es por cada ${m} minutos de reunión: si dura más, el total se calcula por bloques.`,
-    per: (m) => `cada ${m} min de relevamiento técnico`,
-    perShort: (m) => `cada ${m} min`,
+    billing: (m, from) => `Cada bloque de ${m} minutos se cobra al precio del tramo en que empieza y un bloque incompleto cuenta como uno entero. Con menos de ${from} rige la tarifa normal.`,
+    perHour: 'la hora de relevamiento técnico',
+    hourShort: 'la hora',
+    equals: (f) => `Equivale a ${f.block} cada ${f.minutes} min (antes ${f.blockOriginal}).`,
     off: (p) => `−${p} %`,
-    srPrice: (price, original, m) => `Precio de oferta: ${price} cada ${m} minutos de relevamiento técnico. Precio original: ${original}.`,
+    srPrice: (f) => `Oferta: ${f.hour} la hora de relevamiento técnico, es decir ${f.block} cada ${f.minutes} minutos, desde ${f.from} de reunión. Precio normal: ${f.hourOriginal} la hora (${f.blockOriginal} cada ${f.minutes} minutos). El total se calcula por tramos.`,
+    tiersTitle: (m) => `Tarifa por tramos · cada ${m} min y por hora`,
+    tierBelow: (to) => `Menos de ${to} · tarifa normal`,
+    tierBetween: (from, to) => `De ${from} a ${to}`,
+    tierFrom: (from) => `Más de ${from}`,
     examples: 'Costo total según la duración de la reunión',
     was: 'antes',
     support: 'Para emergencias, reparación o mantenimiento de equipos, en remoto o presencial, está Soporte 24/7.',
@@ -162,7 +172,7 @@ const es: Dictionary = {
     ref: 'Ref.',
     services: 'Servicios de interés',
     consult: 'Consulta',
-    consultValue: (m, price, original) => `${price} cada ${m} min de relevamiento técnico (oferta; precio original ${original})`,
+    consultValue: (f) => `${f.hour} la hora (${f.block} cada ${f.minutes} min), oferta desde ${f.from}; precio normal ${f.hourOriginal} la hora; total por tramos`,
     origin: 'origen',
     footer: 'Enviado desde',
     closing: 'Quedo a la espera para coordinar la videollamada.',
@@ -204,13 +214,18 @@ const pt: Dictionary = {
   },
   consulta: {
     badge: 'Oferta',
-    title: (m) => `Levantamento técnico em blocos de ${m} minutos`,
+    title: 'Levantamento técnico, com tarifa por faixas',
     lead: 'Toda assessoria começa com um levantamento técnico por videochamada: você conta sua situação e definimos juntos os próximos passos. Vale para software, sistemas, gestão, infraestrutura ou inteligência artificial.',
-    billing: (m) => `O preço é a cada ${m} minutos de reunião: se durar mais, o total é calculado por blocos.`,
-    per: (m) => `a cada ${m} min de levantamento técnico`,
-    perShort: (m) => `a cada ${m} min`,
+    billing: (m, from) => `Cada bloco de ${m} minutos é cobrado pelo preço da faixa em que começa e um bloco incompleto conta como inteiro. Com menos de ${from} vale a tarifa normal.`,
+    perHour: 'a hora de levantamento técnico',
+    hourShort: 'a hora',
+    equals: (f) => `Equivale a ${f.block} a cada ${f.minutes} min (antes ${f.blockOriginal}).`,
     off: (p) => `−${p} %`,
-    srPrice: (price, original, m) => `Preço da oferta: ${price} a cada ${m} minutos de levantamento técnico. Preço original: ${original}.`,
+    srPrice: (f) => `Oferta: ${f.hour} a hora de levantamento técnico, ou seja, ${f.block} a cada ${f.minutes} minutos, a partir de ${f.from} de reunião. Preço normal: ${f.hourOriginal} a hora (${f.blockOriginal} a cada ${f.minutes} minutos). O total é calculado por faixas.`,
+    tiersTitle: (m) => `Tarifa por faixas · a cada ${m} min e por hora`,
+    tierBelow: (to) => `Menos de ${to} · tarifa normal`,
+    tierBetween: (from, to) => `De ${from} a ${to}`,
+    tierFrom: (from) => `Mais de ${from}`,
     examples: 'Custo total conforme a duração da reunião',
     was: 'antes',
     support: 'Para emergências, conserto ou manutenção de equipamentos, remoto ou presencial, há o Suporte 24/7.',
@@ -291,7 +306,7 @@ const pt: Dictionary = {
     ref: 'Ref.',
     services: 'Serviços de interesse',
     consult: 'Consulta',
-    consultValue: (m, price, original) => `${price} a cada ${m} min de levantamento técnico (oferta; preço original ${original})`,
+    consultValue: (f) => `${f.hour} a hora (${f.block} a cada ${f.minutes} min), oferta a partir de ${f.from}; preço normal ${f.hourOriginal} a hora; total por faixas`,
     origin: 'origem',
     footer: 'Enviado de',
     closing: 'Aguardo para agendarmos a videochamada.',
@@ -333,13 +348,18 @@ const en: Dictionary = {
   },
   consulta: {
     badge: 'Offer',
-    title: (m) => `Technical assessment in ${m}-minute blocks`,
+    title: 'Technical assessment, with tiered pricing',
     lead: 'Every advisory engagement starts with a technical assessment by video call: you describe your situation and we define the next steps together. It covers software, systems, management, infrastructure or artificial intelligence.',
-    billing: (m) => `The price applies to every ${m} minutes of meeting: if it runs longer, the total is calculated by blocks.`,
-    per: (m) => `per ${m} min of technical assessment`,
-    perShort: (m) => `per ${m} min`,
+    billing: (m, from) => `Each ${m}-minute block is charged at the price of the tier where it starts, and a partial block counts as a full one. Under ${from} the regular rate applies.`,
+    perHour: 'per hour of technical assessment',
+    hourShort: 'per hour',
+    equals: (f) => `Equivalent to ${f.block} per ${f.minutes} min (was ${f.blockOriginal}).`,
     off: (p) => `−${p}%`,
-    srPrice: (price, original, m) => `Offer price: ${price} per ${m} minutes of technical assessment. Original price: ${original}.`,
+    srPrice: (f) => `Offer: ${f.hour} per hour of technical assessment, i.e. ${f.block} per ${f.minutes} minutes, from ${f.from} of meeting. Regular price: ${f.hourOriginal} per hour (${f.blockOriginal} per ${f.minutes} minutes). The total is calculated by tier.`,
+    tiersTitle: (m) => `Tiered pricing · per ${m} min and per hour`,
+    tierBelow: (to) => `Under ${to} · regular rate`,
+    tierBetween: (from, to) => `${from} to ${to}`,
+    tierFrom: (from) => `Over ${from}`,
     examples: 'Total cost by meeting length',
     was: 'was',
     support: 'For emergencies, repair or maintenance of equipment, remote or on-site, there is 24/7 Support.',
@@ -420,7 +440,7 @@ const en: Dictionary = {
     ref: 'Ref.',
     services: 'Services of interest',
     consult: 'Consultation',
-    consultValue: (m, price, original) => `${price} per ${m} min of technical assessment (offer; original price ${original})`,
+    consultValue: (f) => `${f.hour} per hour (${f.block} per ${f.minutes} min), offer from ${f.from}; regular price ${f.hourOriginal} per hour; total by tier`,
     origin: 'source',
     footer: 'Sent from',
     closing: 'Looking forward to scheduling the video call.',

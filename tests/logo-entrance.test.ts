@@ -53,9 +53,10 @@ describe('entrada del logo tras el banner de carga', () => {
     expect(css).toMatch(/prefers-reduced-motion: reduce\)\s*\{[^@]*logo-failsafe 0s linear 10s forwards !important/);
   });
 
-  it('la duración de la transición coincide con la que usa la escena para fijar cuándo empieza el 3D', () => {
+  it('la opacidad entra casi de golpe (lo que se ve entrar es el barrido del logo, no un fundido) y la escala dura lo que usa la escena para fijar cuándo empieza el 3D', () => {
     const base = rule('.hero__logo { transition')!;
-    expect(base).toMatch(/opacity 1\.2s/);
+    expect(Number(/opacity ([\d.]+)s/.exec(base)![1]), 'un fundido corto: no se come el barrido').toBeLessThanOrEqual(0.2);
+    expect(base).toMatch(/transform 1\.2s/);
     const scene = readFileSync(join(ROOT, 'src/view/logoScene.ts'), 'utf8');
     expect(scene).toMatch(/const APPEAR_MS = 1200;/);
   });

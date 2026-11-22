@@ -145,13 +145,14 @@ html[data-boot='ready'] .hero__copy > :nth-child(5) { animation-delay: 0.34s; }
 }
 .hero__offer s { color: var(--dim); text-decoration-thickness: 1.5px; }
 .hero__offer b { color: #ffcf7a; font: 700 17px/1 var(--font-head); letter-spacing: 0.02em; }
-/* Entrada del logo: aparece de la nada, plano (2D), 1 s después de retirarse el banner de carga; el paso al 3D viene después
- * (línea de tiempo en view/logoScene.ts). El logo está OCULTO como estado estático desde el primer pintado (el HTML ya
- * trae <html data-boot>) y view/logoScene.ts le pone `data-shown` cuando le toca. No se hace con una animación que arranque
- * al retirarse el banner porque el logo son canvas y capas aceleradas: se podía pintar un cuadro entero, visible, antes de
- * que la animación lo ocultara, y se veía un destello del logo. La transición dura lo mismo que APPEAR_MS en logoScene.ts. */
+/* Entrada del logo: aparece, plano (2D), 1 s después de retirarse el banner de carga, con el barrido (view/logoSweep.ts: aparece y se borra
+ * por tramos, el borrado arrancando antes de que termine la aparición); el paso al 3D viene después (línea de tiempo en view/logoScene.ts). El logo está OCULTO como estado estático desde
+ * el primer pintado (el HTML ya trae <html data-boot>) y view/logoScene.ts le pone `data-shown` cuando le toca. No se hace con una animación
+ * que arranque al retirarse el banner porque el logo son canvas y capas aceleradas: se podía pintar un cuadro entero, visible, antes de que la
+ * animación lo ocultara, y se veía un destello del logo. La opacidad entra casi de golpe (el barrido ya lo tiene oculto en ese cuadro: lo que
+ * se ve entrar es el barrido, no un fundido) y la escala crece durante APPEAR_MS (lo que dura su transición, igual que en logoScene.ts). */
 html[data-boot] .hero__logo:not([data-shown]) { opacity: 0; transform: scale(0.7); }
-.hero__logo { transition: opacity 1.2s var(--ease-io), transform 1.2s var(--ease-io); }
+.hero__logo { transition: opacity 0.15s linear, transform 1.2s var(--ease-io); }
 /* Si el script no llega a mostrarlo (falla o tarda más de 10 s) el logo se muestra igual. */
 html[data-boot='loading'] .hero__logo:not([data-shown]) { animation: logo-failsafe 0s linear 10s forwards; }
 @keyframes logo-failsafe { to { opacity: 1; transform: none; } }
@@ -164,18 +165,16 @@ html[data-boot='loading'] .hero__logo:not([data-shown]) { animation: logo-failsa
   animation: boot-failsafe 0s linear 10s forwards;
 }
 .boot__inner { display: grid; justify-items: center; gap: 20px; }
-.boot__mark { position: relative; width: 136px; aspect-ratio: 1; display: grid; place-items: center; }
-.boot__logo { width: 76px; height: auto; filter: drop-shadow(0 0 18px rgba(106, 60, 255, 0.6)); animation: boot-breathe 2.4s ease-in-out infinite; }
-.boot__ring { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; fill: none; stroke-linecap: round; }
-.boot__track { stroke: rgba(143, 157, 255, 0.2); stroke-width: 1; }
-.boot__arc { stroke: #7ff2ff; stroke-width: 1.6; stroke-dasharray: 72 217; transform-box: fill-box; transform-origin: center; filter: drop-shadow(0 0 4px rgba(127, 242, 255, 0.9)); animation: boot-spin 1.4s linear infinite; }
+.boot__mark { position: relative; width: 180px; aspect-ratio: 1; }
+/* ML en el mismo sitio y proporción que en el inicio: su lienzo (viewBox -2 -2 150 104) dentro de la capa del globo (viewBox -52 -64 228 228). */
+.boot__ml { position: absolute; left: 21.9%; top: 27.2%; width: 65.8%; filter: drop-shadow(0 0 18px rgba(106, 60, 255, 0.6)); animation: boot-breathe 2.4s ease-in-out infinite; }
+.boot__logo { display: block; width: 100%; height: auto; }
 .boot__label { font: 600 12px/1 var(--font-head); letter-spacing: 0.28em; text-transform: uppercase; color: var(--muted); }
 .boot__bar { width: 168px; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
 .boot__bar i { display: block; height: 100%; background: var(--grad); box-shadow: 0 0 10px rgba(138, 60, 255, 0.7); transform-origin: left; transform: scaleX(var(--p, 0.1)); transition: transform 0.45s var(--ease); }
 .boot.is-leaving { animation: boot-out 0.56s var(--ease-io) forwards; pointer-events: none; }
 @keyframes boot-out { to { opacity: 0; transform: scale(1.03); visibility: hidden; } }
 @keyframes boot-failsafe { to { opacity: 0; visibility: hidden; pointer-events: none; } }
-@keyframes boot-spin { to { transform: rotate(360deg); } }
 @keyframes boot-breathe { 50% { transform: scale(1.06); } }
 
 /* Logo con profundidad. La escena (globo, aros y arcos) se dibuja en canvas, ver view/logoScene.ts; aquí solo va la
@@ -186,6 +185,45 @@ html[data-boot='loading'] .hero__logo:not([data-shown]) { animation: logo-failsa
 .logo3d > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .logo3d__cv { position: absolute; left: -15%; top: -15%; width: 130%; height: 130%; pointer-events: none; }
 .logo3d__mark { will-change: transform; }
+/* La estela diagonal de la marca sobresale del lienzo (hacia el vacío) sin que el logo cambie de tamaño: el SVG deja el desbordamiento visible. */
+.logo__svg { overflow: visible; }
+
+/* El barrido del logo (view/logoSweep.ts) lo mueve JavaScript: escribe la opacidad de las paradas de los degradados de las máscaras (lo que se
+ * ve del logo) y de las copias claras (`logo__lit`, la luz del frente), que nacen en 0. No hay reglas de CSS que lo anime ni capa aparte encima
+ * del logo; con "reducir movimiento" no hay barrido y el logo se ve entero y quieto. */
+
+/* Destellos de la estela (solo en el banner de carga: el logo lleva `flow`, ver Logo.tsx). Por el eje de cada línea de la estela corre un trazo
+ * corto y claro —y su halo, más ancho y tenue— de la pata a donde la línea se disuelve, como una estrella fugaz; cada línea con su ritmo (--t,
+ * la duración, y --w, el desfase) para que no vayan a la vez. Corre el 46 % del periodo y descansa el resto. Dos animaciones porque el
+ * recorrido se acelera (cubic-bezier) y el brillo entra y sale en línea recta. El polvo del final titila con el mismo desfase. */
+.logo__flow, .logo__flow-glow { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: var(--l) 4; stroke-dashoffset: var(--l); opacity: 0; }
+.logo__flow { --l: 0.07; stroke: #b78cff; }
+.logo__flow-glow { --l: 0.2; stroke: rgba(138, 60, 255, 0.34); }
+.boot .logo__trail-layer { --t: 3s; --w: 0s; }
+.boot .logo__trail-layer:nth-of-type(1) { --t: 2.6s; --w: 0s; }
+.boot .logo__trail-layer:nth-of-type(2) { --t: 3.1s; --w: 0.9s; }
+.boot .logo__trail-layer:nth-of-type(3) { --t: 2.8s; --w: 1.7s; }
+.boot .logo__trail-layer:nth-of-type(4) { --t: 3.4s; --w: 0.4s; }
+.boot .logo__trail-layer:nth-of-type(5) { --t: 2.7s; --w: 2.2s; }
+.boot .logo__trail-layer:nth-of-type(6) { --t: 3.2s; --w: 1.2s; }
+.boot .logo__trail-layer:nth-of-type(7) { --t: 2.9s; --w: 2.6s; }
+.boot .logo__trail-layer:nth-of-type(8) { --t: 3.3s; --w: 0.6s; }
+.boot .logo__trail-layer:nth-of-type(9) { --t: 2.6s; --w: 1.9s; }
+.boot .logo__flow, .boot .logo__flow-glow {
+  animation: flow-move var(--t) cubic-bezier(0.4, 0, 0.75, 0.6) calc(var(--w) * -1) infinite, flow-fade var(--t) linear calc(var(--w) * -1) infinite;
+}
+.boot .logo__trail-spark { animation: dust 1.7s ease-in-out calc(var(--w) * -1) infinite alternate; }
+@keyframes flow-move {
+  0% { stroke-dashoffset: var(--l); }
+  46%, 100% { stroke-dashoffset: -1; }
+}
+@keyframes flow-fade {
+  0% { opacity: 0; }
+  5% { opacity: 1; }
+  36% { opacity: 1; }
+  46%, 100% { opacity: 0; }
+}
+@keyframes dust { from { opacity: 0.3; } to { opacity: 1; } }
 
 /* Concepto: "Tecnología pensada desde su negocio" (v1) */
 .concept__inner { display: grid; gap: 28px; align-items: center; }
@@ -375,6 +413,8 @@ html[data-boot='loading'] .hero__logo:not([data-shown]) { animation: logo-failsa
 .offer__off { padding: 5px 9px; border-radius: 6px; font: 700 13px/1 var(--font-body); color: #04210f; background: var(--wa); }
 .offer__billing { margin-top: 10px; color: var(--muted); font-size: 14.5px; max-width: 56ch; }
 .offer__per { margin: 0 0 4px; color: var(--muted); font-size: 15px; }
+.offer__equals { margin: 0 0 6px; color: var(--text); font-size: 15px; font-weight: 500; }
+.offer__rate { color: var(--dim); font-size: 14px; white-space: nowrap; }
 .offer__examples { align-self: stretch; margin: 8px 0 14px; padding: 12px 14px; border-radius: var(--radius-s); border: 1px solid var(--line); background: rgba(0, 0, 0, 0.22); }
 .offer__examples-title { font: 600 11.5px/1.3 var(--font-body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); }
 .offer__examples ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }

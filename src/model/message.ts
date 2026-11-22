@@ -10,7 +10,7 @@
 import { site } from '@/config/site';
 import { SERVICES } from './catalog';
 import { DICTIONARIES } from './i18n';
-import { CONSULTA, consultationApplies, formatMoney } from './offer';
+import { consultationApplies, offerFigures } from './offer';
 import { isEmpty } from './validation';
 import type { Answers, Locale, Question, Section, ServiceId } from './types';
 
@@ -74,11 +74,7 @@ export function buildLines(input: MessageInput, options: { pending?: boolean; fo
     lines.push({ kind: 'text', text: `*${dict.services}:* ${names.join(', ')}` });
   }
   if (consultationApplies(selected)) {
-    const value = dict.consultValue(
-      CONSULTA.minutes,
-      formatMoney(CONSULTA.price, CONSULTA.currency),
-      formatMoney(CONSULTA.originalPrice, CONSULTA.currency),
-    );
+    const value = dict.consultValue(offerFigures());
     lines.push({ kind: 'text', text: `*${dict.consult}:* ${value}` });
   }
 

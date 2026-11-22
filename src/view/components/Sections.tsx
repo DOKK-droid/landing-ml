@@ -2,8 +2,8 @@
 /* Secciones de la landing: inicio, pasos, servicios, enfoque y barra de selección. */
 import { useRef } from 'react';
 import { SERVICES } from '@/model/catalog';
-import { DICTIONARIES } from '@/model/i18n';
-import { CONSULTA, discountPercent, EXAMPLE_MINUTES, formatDuration, formatMoney, meetingCost } from '@/model/offer';
+import { DICTIONARIES, type Dictionary } from '@/model/i18n';
+import { CONSULTA, discountPercent, EXAMPLE_MINUTES, formatDuration, formatMoney, hourly, meetingCost, offerFigures, offerRates, type OfferRate } from '@/model/offer';
 import type { Locale, ServiceId } from '@/model/types';
 import { usePresence } from '../motion';
 import { ArrowIcon, CheckIcon, ServiceIcon } from './Icons';
@@ -14,8 +14,7 @@ import { ServiceArt } from './ServiceArt';
 export function Hero({ locale, onStart }: { locale: Locale; onStart: () => void }) {
   const d = DICTIONARIES[locale].hero;
   const c = DICTIONARIES[locale].consulta;
-  const price = formatMoney(CONSULTA.price, CONSULTA.currency);
-  const original = formatMoney(CONSULTA.originalPrice, CONSULTA.currency);
+  const fig = offerFigures();
   return (
     <section className="hero">
       <div className="container hero__inner">
@@ -30,13 +29,13 @@ export function Hero({ locale, onStart }: { locale: Locale; onStart: () => void 
             <a className="btn btn--ghost" href="#servicios">{d.secondary}</a>
           </div>
           <a className="hero__offer" href="#consulta">
-            <span aria-hidden="true">{c.hero} · {c.perShort(CONSULTA.minutes)}</span>
-            <s aria-hidden="true">{original}</s>
-            <b aria-hidden="true">{price}</b>
-            <span className="sr-only">{c.hero}: {c.srPrice(price, original, CONSULTA.minutes)}</span>
+            <span aria-hidden="true">{c.hero} · {c.hourShort}</span>
+            <s aria-hidden="true">{fig.hourOriginal}</s>
+            <b aria-hidden="true">{fig.hour}</b>
+            <span className="sr-only">{c.hero}: {c.srPrice(fig)}</span>
           </a>
         </div>
-        <Logo variant="hero" className="hero__logo" />
+        <Logo variant="hero" className="hero__logo" sweep="visible" />
       </div>
     </section>
   );
@@ -138,30 +137,48 @@ export function ServicesSection({ locale, selected, openId, flashId, onOpen, onT
   );
 }
 
-/** Oferta del relevamiento técnico: precio por bloque y costo total de ejemplo. Los valores salen de src/config/site.ts. */
+/** Rótulo de un tramo de la tarifa: "Menos de 1 h · tarifa normal", "De 1 h a 2 h", "Más de 3 h 30 min". */
+function tierLabel(d: Dictionary['consulta'], r: OfferRate): string {
+  if (r.regular) return d.tierBelow(formatDuration(r.to!));
+  return r.to === null ? d.tierFrom(formatDuration(r.from)) : d.tierBetween(formatDuration(r.from), formatDuration(r.to));
+}
+
+/** Oferta del relevamiento técnico: tarifa por tramos, referencia por bloque y costo total de ejemplo. Los valores salen de src/config/site.ts. */
 export function OfferSection({ locale, onStart }: { locale: Locale; onStart: () => void }) {
   const d = DICTIONARIES[locale].consulta;
-  const price = formatMoney(CONSULTA.price, CONSULTA.currency);
-  const original = formatMoney(CONSULTA.originalPrice, CONSULTA.currency);
+  const fig = offerFigures();
   return (
     <section className="section offer" id="consulta" aria-labelledby="offer-title">
       <div className="container">
         <div className="offer__card" data-reveal>
           <div className="offer__copy">
             <span className="offer__badge">{d.badge}</span>
-            <h2 id="offer-title" className="section__title">{d.title(CONSULTA.minutes)}</h2>
+            <h2 id="offer-title" className="section__title">{d.title}</h2>
             <p className="offer__lead">{d.lead}</p>
-            <p className="offer__billing">{d.billing(CONSULTA.minutes)}</p>
+            <p className="offer__billing">{d.billing(CONSULTA.minutes, fig.from)}</p>
             <p className="offer__support">{d.support} <a href="#svc-soporte">{d.supportLink}</a></p>
           </div>
           <div className="offer__price">
-            <p className="sr-only">{d.srPrice(price, original, CONSULTA.minutes)}</p>
+            <p className="sr-only">{d.srPrice(fig)}</p>
             <p className="offer__amounts" aria-hidden="true">
-              <s className="offer__old">{original}</s>
-              <span className="offer__now">{price}</span>
+              <s className="offer__old">{fig.hourOriginal}</s>
+              <span className="offer__now">{fig.hour}</span>
               <span className="offer__off">{d.off(discountPercent(CONSULTA))}</span>
             </p>
-            <p className="offer__per" aria-hidden="true">{d.per(CONSULTA.minutes)}</p>
+            <p className="offer__per" aria-hidden="true">{d.perHour}</p>
+            <p className="offer__equals" aria-hidden="true">{d.equals(fig)}</p>
+            <div className="offer__examples offer__tiers">
+              <p className="offer__examples-title">{d.tiersTitle(CONSULTA.minutes)}</p>
+              <ul>
+                {offerRates().map((r) => (
+                  <li key={r.from}>
+                    <span className="offer__dur">{tierLabel(d, r)}</span>
+                    <span className="offer__rate">{formatMoney(r.price, CONSULTA.currency)} / {CONSULTA.minutes} min</span>
+                    <b>{formatMoney(hourly(r.price), CONSULTA.currency)} / h</b>
+                  </li>
+                ))}
+              </ul>
+            </div>
             <div className="offer__examples">
               <p className="offer__examples-title">{d.examples}</p>
               <ul>
@@ -170,7 +187,9 @@ export function OfferSection({ locale, onStart }: { locale: Locale; onStart: () 
                   return (
                     <li key={minutes}>
                       <span className="offer__dur">{formatDuration(minutes)}</span>
-                      <s><span className="sr-only">{d.was} </span>{formatMoney(cost.originalPrice, CONSULTA.currency)}</s>
+                      {cost.price < cost.originalPrice
+                        ? <s><span className="sr-only">{d.was} </span>{formatMoney(cost.originalPrice, CONSULTA.currency)}</s>
+                        : <span aria-hidden="true" />}
                       <b>{formatMoney(cost.price, CONSULTA.currency)}</b>
                     </li>
                   );

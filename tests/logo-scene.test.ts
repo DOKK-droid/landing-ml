@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { I3, STAGES, TRANSITION_S, animBlend, animClock, apply, cometAlpha, cometWidth, drawScene, isFront, markPlane, markTransform, mul, poseAt, rotAxis, type V3 } from '@/view/logoScene';
+import { BANNER_GLOBE_PERIOD, CANVAS_PAD, I3, STAGES, TRANSITION_S, animBlend, animClock, apply, cometAlpha, cometWidth, drawGlobeOnly, drawScene, isFront, markPlane, markTransform, mul, poseAt, rotAxis, type V3 } from '@/view/logoScene';
 
 const deg = (d: number) => (d * Math.PI) / 180;
 const near = (v: V3, w: V3, digits = 6) => v.forEach((x, i) => expect(x).toBeCloseTo(w[i], digits));
@@ -298,5 +298,53 @@ describe('drawScene', () => {
     const { ctx } = fakeCtx();
     const pose = drawScene(ctx, ctx, 240, at('mark', 3.5), false);
     expect(pose.mark.a).toBeCloseTo(14, 9);
+  });
+});
+
+/** Contexto que apunta todo lo que se traza (puntos y arcos), para comparar dibujos. */
+function recCtx() {
+  const log: string[] = [];
+  const grad = () => ({ addColorStop() {} });
+  const ctx = new Proxy({}, {
+    get: (_t, k) => {
+      if (k === 'createLinearGradient' || k === 'createRadialGradient') return grad;
+      if (k === 'moveTo' || k === 'lineTo' || k === 'arc' || k === 'clearRect') return (...a: number[]) => { log.push(`${String(k)}(${a.map((n) => n.toFixed(3)).join(',')})`); };
+      return () => {};
+    },
+    set: () => true,
+  }) as unknown as CanvasRenderingContext2D;
+  return { ctx, log };
+}
+
+describe('el globo solo (banner de carga)', () => {
+  it('dibuja el mismo globo del inicio: un cuerpo circular y sus meridianos y paralelos', () => {
+    const { ctx, log } = recCtx();
+    drawGlobeOnly(ctx, 200, 0);
+    expect(log[0]).toBe(`clearRect(0.000,0.000,${(200 * (1 + 2 * CANVAS_PAD)).toFixed(3)},${(200 * (1 + 2 * CANVAS_PAD)).toFixed(3)})`);
+    expect(log.filter((l) => l.startsWith('arc')).length, 'el círculo del globo').toBeGreaterThan(0);
+    expect(log.filter((l) => l.startsWith('lineTo')).length, 'meridianos y paralelos').toBeGreaterThan(50);
+    // y el círculo está centrado en la capa y mide 84 de las 228 unidades de su ancho
+    const circle = log.find((l) => l.startsWith('arc'))!.match(/arc\(([\d.]+),([\d.]+),([\d.]+)/)!;
+    expect(+circle[1]).toBeCloseTo((200 * (1 + 2 * CANVAS_PAD)) / 2, 2);
+    expect(+circle[3]).toBeCloseTo((84 * 200) / 228, 2);
+  });
+
+  it('gira: dos instantes distintos dibujan distinto, y pasado un periodo entero queda exactamente igual', () => {
+    const at = (t: number) => { const r = recCtx(); drawGlobeOnly(r.ctx, 200, t); return r.log.join('|'); };
+    expect(at(0)).not.toBe(at(1.3));
+    expect(at(2)).toBe(at(2 + BANNER_GLOBE_PERIOD));
+  });
+
+  it('el periodo se puede cambiar y el dibujo escala con el tamaño de la capa', () => {
+    const slow = recCtx(), fast = recCtx();
+    drawGlobeOnly(slow.ctx, 200, 1, 36);
+    drawGlobeOnly(fast.ctx, 200, 1, 4);
+    expect(slow.log.join('|')).not.toBe(fast.log.join('|'));
+    const radius = (layer: number) => {
+      const r = recCtx();
+      drawGlobeOnly(r.ctx, layer, 0);
+      return Number(/arc\([\d.]+,[\d.]+,([\d.]+)/.exec(r.log.find((l) => l.startsWith('arc'))!)![1]);
+    };
+    expect(radius(400) / radius(200)).toBeCloseTo(2, 3);
   });
 });
