@@ -6,7 +6,7 @@
  * nunca habla con `challenges.cloudflare.com`. No lleva SRI (el proveedor lo actualiza); se acota con el origen exacto en la
  * CSP (scripts/lib/harden.mjs). El token es de un solo uso y vence a los 5 minutos: la verificación la hace el servidor.
  * ============================================================ */
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Locale } from '@/model/types';
 
 export const TURNSTILE_ORIGIN = 'https://challenges.cloudflare.com';
@@ -46,7 +46,18 @@ export function loadTurnstile(): Promise<TurnstileApi> {
 /** Idioma del widget: Turnstile usa `pt-br` para el portugués. */
 const WIDGET_LANGUAGE: Record<Locale, string> = { es: 'es', pt: 'pt-br', en: 'en' };
 
+/**
+ * En qué punto está la verificación:
+ *   · `idle`: todavía no se pidió (el cliente no consintió);
+ *   · `pending`: Cloudflare está verificando por su cuenta, sin mostrar nada;
+ *   · `interactive`: Cloudflare necesita que el cliente haga algo (el widget se ve);
+ *   · `ready`: hay un token vigente;
+ *   · `failed`: no se pudo cargar o completar (sin script, sin red, error del widget).
+ */
+export type TurnstileStatus = 'idle' | 'pending' | 'interactive' | 'ready' | 'failed';
+
 export interface TurnstileHandle {
+  status: TurnstileStatus;
   /** Elemento donde se dibuja el widget. */
   containerRef: React.RefObject<HTMLDivElement | null>;
   /** Token vigente; si todavía no hay, espera hasta `waitMs`. `null` = no llegó a tiempo (el cliente sigue sin registro). */
@@ -64,10 +75,15 @@ export function useTurnstile({ enabled, siteKey, locale }: { enabled: boolean; s
   const token = useRef<string | null>(null);
   const widget = useRef<string | null>(null);
   const waiters = useRef(new Set<(value: string | null) => void>());
+  const [status, setStatus] = useState<TurnstileStatus>('idle');
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!enabled || !siteKey || !container) return;
+    if (!enabled || !siteKey || !container) {
+      setStatus('idle');
+      return;
+    }
+    setStatus('pending');
     let cancelled = false;
     let api: TurnstileApi | null = null;
     loadTurnstile()
@@ -77,22 +93,35 @@ export function useTurnstile({ enabled, siteKey, locale }: { enabled: boolean; s
         widget.current = loaded.render(container, {
           sitekey: siteKey,
           appearance: 'interaction-only',
+          // El sitio es oscuro: con el tema por defecto el widget sale como una caja blanca.
+          theme: 'dark',
           language: WIDGET_LANGUAGE[locale],
           callback: (value: string) => {
             token.current = value;
+            setStatus('ready');
             waiters.current.forEach((resolve) => resolve(value));
             waiters.current.clear();
           },
+          // Cloudflare avisa justo antes de pedir una acción al cliente y justo después de que la completa.
+          'before-interactive-callback': () => {
+            if (!token.current) setStatus('interactive');
+          },
+          'after-interactive-callback': () => {
+            if (!token.current) setStatus('pending');
+          },
           'expired-callback': () => {
             token.current = null;
+            setStatus('pending'); // vence a los 5 min: el widget pide otro solo
           },
           'error-callback': () => {
             token.current = null;
+            setStatus('failed');
           },
         });
       })
       .catch(() => {
-        /* sin script no hay token: al enviar se sigue a WhatsApp sin registro */
+        // Sin script no hay token: al enviar se sigue a WhatsApp sin registro.
+        if (!cancelled) setStatus('failed');
       });
     return () => {
       cancelled = true;
@@ -117,8 +146,9 @@ export function useTurnstile({ enabled, siteKey, locale }: { enabled: boolean; s
 
   const consume = useCallback(() => {
     token.current = null;
+    setStatus('pending');
     if (widget.current) window.turnstile?.reset(widget.current);
   }, []);
 
-  return { containerRef, getToken, consume };
+  return { status, containerRef, getToken, consume };
 }

@@ -1,5 +1,6 @@
 /* Conexión con el CRM: el cuerpo que se envía, las referencias, la llamada de red y la política de contenido que la permite.
  * El contrato es el de docs/SEGURIDAD.md 7.5; el servidor (landing_crm.api.submit_lead) lo valida de nuevo y no confía en nada. */
+import { existsSync, readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { site } from '@/config/site';
 import { registerLead, submitUrl, SUBMIT_PATH } from '@/controller/registerLead';
@@ -241,5 +242,31 @@ describe('política de contenido con Turnstile', () => {
     expect((await checkHtml(wideFrame, readAsset)).join('\n')).toMatch(/frame-src/);
     const noFrame = withTurnstile.replace(`frame-src ${TURNSTILE_ORIGIN}; `, '');
     expect((await checkHtml(noFrame, readAsset)).join('\n')).toMatch(/frame-src/);
+  });
+});
+
+describe('imágenes del CSS y la política img-src', () => {
+  // El verificador de la CSP revisa el HTML, no las hojas de estilo: un `data:` URI en el CSS solo se descubre en un navegador
+  // (así pasó con el fondo de grano). `img-src 'self'` solo admite archivos del propio sitio.
+  const css = readFileSync('src/styles/globals.css', 'utf8');
+  const urls = [...css.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/g)].map((m) => m[2]);
+
+  it('el CSS no usa data: URI ni orígenes externos', () => {
+    expect(urls.length).toBeGreaterThan(0);
+    for (const url of urls) expect(url, url.slice(0, 60)).not.toMatch(/^(data:|blob:|https?:|\/\/)/i);
+  });
+
+  it('cada archivo que el CSS pide por ruta absoluta existe en public/', () => {
+    const files = urls.filter((url) => url.startsWith('/'));
+    expect(files).toContain('/grain.svg');
+    for (const file of files) expect(existsSync(`public${file}`), file).toBe(true);
+  });
+
+  it('el grano es un SVG válido y chico', () => {
+    const svg = readFileSync('public/grain.svg', 'utf8');
+    expect(svg).toMatch(/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
+    expect(svg).toContain('feTurbulence');
+    expect(svg).not.toMatch(/<script|on[a-z]+=|href=/i); // un SVG de imagen no lleva scripts ni enlaces
+    expect(svg.length).toBeLessThan(1000);
   });
 });

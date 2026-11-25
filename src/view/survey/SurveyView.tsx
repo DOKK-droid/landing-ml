@@ -138,6 +138,12 @@ function ReviewView({ locale, ctrl, headingRef, stepLabel }: {
           <p className="consent__note">{d.consentNote}</p>
           {/* Turnstile dibuja acá solo si hace falta una interacción; si no, queda sin altura. */}
           {consent && <div className="consent__widget" ref={turnstile.containerRef} />}
+          {/* Siempre presente mientras hay consentimiento, para que el lector de pantalla anuncie el cambio de texto. Sin texto, no se ve. */}
+          {consent && (
+            <p className="consent__hint" role="status">
+              {turnstile.status === 'interactive' ? d.verify : turnstile.status === 'failed' ? d.verifyFailed : ''}
+            </p>
+          )}
         </div>
       )}
 

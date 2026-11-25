@@ -49,6 +49,8 @@ export interface Dictionary {
     sent: string; restart: string; tooLong: string;
     /** Registro de la consulta en el CRM (solo si el sitio tiene la conexión activa). */
     consent: string; consentNote: string; registering: string; reference: string;
+    /** Bajo el widget: cuando Cloudflare pide una acción y mientras falte, o cuando la verificación no se pudo completar. */
+    verify: string; verifyFailed: string;
   };
   message: {
     greeting: string; greetingNamed: (name: string) => string; title: string; ref: string; services: string;
@@ -183,6 +185,8 @@ const es: Dictionary = {
     consentNote: 'Es opcional: si no lo marca, el mensaje se envía igual por WhatsApp y no se guarda nada en el sitio.',
     registering: 'Registrando su consulta…',
     reference: 'Su referencia',
+    verify: 'Complete la verificación de arriba para que se registre su consulta. Si no, el mensaje se envía igual por WhatsApp, sin registro.',
+    verifyFailed: 'No se pudo completar la verificación. Puede enviar igual por WhatsApp: su consulta no quedará registrada.',
   },
   message: {
     greeting: 'Hola Mariano, quiero hacer una consulta.',
@@ -330,6 +334,8 @@ const pt: Dictionary = {
     consentNote: 'É opcional: se você não marcar, a mensagem é enviada mesmo assim pelo WhatsApp e nada é guardado no site.',
     registering: 'Registrando sua consulta…',
     reference: 'Sua referência',
+    verify: 'Conclua a verificação acima para que sua consulta seja registrada. Caso contrário, a mensagem é enviada mesmo assim pelo WhatsApp, sem registro.',
+    verifyFailed: 'Não foi possível concluir a verificação. Você pode enviar mesmo assim pelo WhatsApp: sua consulta não será registrada.',
   },
   message: {
     greeting: 'Olá Mariano, gostaria de fazer uma consulta.',
@@ -477,6 +483,8 @@ const en: Dictionary = {
     consentNote: 'This is optional: if you leave it unticked, the message is still sent via WhatsApp and nothing is stored on the site.',
     registering: 'Registering your inquiry…',
     reference: 'Your reference',
+    verify: 'Complete the verification above so your inquiry is registered. Otherwise the message is still sent via WhatsApp, without being registered.',
+    verifyFailed: 'The verification could not be completed. You can still send via WhatsApp: your inquiry will not be registered.',
   },
   message: {
     greeting: "Hi Mariano, I'd like to make an inquiry.",

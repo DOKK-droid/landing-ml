@@ -27,6 +27,10 @@ const observeClick = (e: Event) => {
 };
 const fetchMock = vi.fn();
 const turnstile = { render: vi.fn(), reset: vi.fn(), remove: vi.fn() };
+type WidgetOptions = Record<string, unknown> & { callback: (t: string) => void };
+/** Las opciones con las que el controlador dibujó el widget: permite disparar los avisos de Cloudflare como lo haría el widget real. */
+let widgetOptions: WidgetOptions | null = null;
+const widgetEvent = (name: string, ...args: unknown[]) => act(async () => { (widgetOptions![name] as (...a: unknown[]) => void)(...args); });
 
 const $ = <T extends Element = HTMLElement>(sel: string) => document.querySelector<T>(sel);
 const text = (sel: string) => $(sel)?.textContent?.trim() ?? '';
@@ -51,7 +55,8 @@ function reply(status: number, body: unknown = {}) {
  * el token es de un solo uso y el controlador pide uno nuevo después de cada envío.
  */
 function widgetGives(token: string | null, next = 'tok-2') {
-  turnstile.render.mockImplementation((_el: HTMLElement, options: { callback: (t: string) => void }) => {
+  turnstile.render.mockImplementation((_el: HTMLElement, options: WidgetOptions) => {
+    widgetOptions = options;
     if (token) options.callback(token);
     turnstile.reset.mockImplementation(() => options.callback(next));
     return 'widget-1';
@@ -90,6 +95,7 @@ beforeEach(() => {
   turnstile.render.mockReset();
   turnstile.reset.mockReset();
   turnstile.remove.mockReset();
+  widgetOptions = null;
   window.turnstile = turnstile;
 
   prevented = null;
@@ -160,6 +166,91 @@ describe('con la conexión activa', () => {
     expect($('.consent__widget')).not.toBeNull();
     expect(turnstile.render).toHaveBeenCalledTimes(1);
     expect(turnstile.render.mock.calls[0][1]).toMatchObject({ sitekey: 'site-key', language: 'es', appearance: 'interaction-only' });
+  });
+
+  it('el widget sigue el tema oscuro del sitio (con el de fábrica sale como una caja blanca)', async () => {
+    widgetGives('tok-1');
+    await mountInReview();
+    await click(consentBox());
+    await flush();
+    expect(turnstile.render.mock.calls[0][1]).toMatchObject({ theme: 'dark' });
+  });
+
+  describe('aviso bajo el widget', () => {
+    const hint = () => text('.consent__hint');
+
+    it('no hay aviso mientras Cloudflare verifica solo, ni cuando el token ya llegó', async () => {
+      widgetGives('tok-1');
+      await mountInReview();
+      expect($('.consent__hint')).toBeNull(); // sin consentimiento no hay nada
+      await click(consentBox());
+      await flush();
+      expect(hint()).toBe('');
+    });
+
+    it('aparece cuando Cloudflare pide una acción y mientras falte el token, y se va al completarla', async () => {
+      widgetGives(null);
+      await mountInReview();
+      await click(consentBox());
+      await flush();
+      expect(hint()).toBe('');
+
+      await widgetEvent('before-interactive-callback');
+      expect(hint()).toMatch(/Complete la verificación de arriba/);
+      expect(hint()).toMatch(/igual por WhatsApp/); // dice qué pasa si no la completa
+
+      await widgetEvent('after-interactive-callback'); // la hizo, falta que llegue el token
+      expect(hint()).toBe('');
+      await widgetEvent('before-interactive-callback');
+      expect(hint()).not.toBe('');
+      await widgetEvent('callback', 'tok-1'); // llegó el token
+      expect(hint()).toBe('');
+    });
+
+    it('es un aviso para lectores de pantalla (role="status")', async () => {
+      widgetGives(null);
+      await mountInReview();
+      await click(consentBox());
+      await flush();
+      expect($('.consent__hint')!.getAttribute('role')).toBe('status');
+    });
+
+    it('si el widget falla, lo dice y deja enviar igual', async () => {
+      widgetGives(null);
+      await mountInReview();
+      await click(consentBox());
+      await flush();
+      await widgetEvent('error-callback');
+      expect(hint()).toMatch(/No se pudo completar la verificación/);
+      expect(hint()).toMatch(/su consulta no quedará registrada/);
+
+      await click(sendLink());
+      await flush(site.crm.tokenWaitMs);
+      expect(whatsapp().message).toContain(`${LOCAL} (sin registro)`);
+    });
+
+    it('si el script de Turnstile no carga, también lo dice', async () => {
+      delete window.turnstile;
+      await mountInReview();
+      await click(consentBox());
+      await flush();
+      const script = document.head.querySelector<HTMLScriptElement>('script[src^="https://challenges.cloudflare.com/"]')!;
+      await act(async () => { script.onerror?.(new Event('error')); });
+      expect(hint()).toMatch(/No se pudo completar la verificación/);
+      script.remove();
+    });
+
+    it('al desmarcar el consentimiento desaparece junto con el widget', async () => {
+      widgetGives(null);
+      await mountInReview();
+      await click(consentBox());
+      await flush();
+      await widgetEvent('before-interactive-callback');
+      expect(hint()).not.toBe('');
+      await click(consentBox());
+      expect($('.consent__hint')).toBeNull();
+      expect($('.consent__widget')).toBeNull();
+    });
   });
 
   it('registra y abre WhatsApp con la referencia del servidor, no con la local', async () => {
