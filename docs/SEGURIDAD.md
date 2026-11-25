@@ -102,10 +102,13 @@ El navegador aplica ambas a la vez, y gana la más restrictiva de cada directiva
 | `style-src` | `'self'` + un hash por cada `<style>` en línea (solo lo tiene la página 404 de Next) | Sin `unsafe-inline` |
 | `style-src-attr` | `'unsafe-hashes'` + un hash por cada atributo `style="…"` de esa página (13 en la landing); `'none'` si no hay | React escribe `style="--c:#2fe6ff;--rd:90ms"` en el HTML. Cada valor se permite por su hash, ya con las entidades HTML resueltas, que es lo que el navegador hashea |
 | `img-src`, `font-src`, `manifest-src` | `'self'` | Las fuentes salen de `@fontsource`, ya empaquetadas en `_next/static/media` |
-| `connect-src` | `'self'` (+ lo que diga `CSP_CONNECT_SRC`) | No hay llamadas externas |
-| `frame-src`, `worker-src`, `object-src`, `base-uri`, `form-action` | `'none'` | No se usan |
+| `connect-src` | `'self'` (+ lo que diga `CSP_CONNECT_SRC`, + el origen de `NEXT_PUBLIC_CRM_URL`, + Turnstile si está activo) | Sin la conexión con el CRM no hay llamadas externas |
+| `frame-src` | `'none'`; con la conexión con el CRM activa, solo `https://challenges.cloudflare.com` | Es el widget de Turnstile. El verificador (`checkHtml`) admite ese origen exacto y rechaza cualquier otro |
+| `worker-src`, `object-src`, `base-uri`, `form-action` | `'none'` | No se usan |
 
-**Agregar un origen.** Cuando exista el CRM, el único cambio es la variable de entorno del build: `CSP_CONNECT_SRC="https://crm.tudominio.com"`. No se edita código.
+**Agregar un origen.** La API del CRM entra sola por `NEXT_PUBLIC_CRM_URL` (su origen va a `connect-src`; no hace falta repetirlo en `CSP_CONNECT_SRC`). Con esa variable **y** `NEXT_PUBLIC_TURNSTILE_SITEKEY` el build activa la conexión y admite el widget: `https://challenges.cloudflare.com` en `script-src`, `frame-src` y `connect-src`. Ese script **no lleva SRI** (el proveedor lo actualiza): es una concesión consciente, acotada a ese origen exacto, y solo existe en los builds con la conexión activa. Sin las variables, la política es la de antes. No se edita código.
+
+**Pendiente de probar en un navegador real:** que Turnstile funcione bajo esta política. Si hiciera falta otra directiva (por ejemplo `worker-src blob:` o un permiso de estilos), se agrega al origen exacto y con su prueba; no se afloja la política en general.
 
 **Límites y riesgos conocidos**
 - **No se probó en un navegador real.** En este entorno no hay navegador. Sí se comprobó que (a) cada script en línea tiene su hash, (b) no queda ningún manejador en línea, `eval` ni origen externo, y (c) el build endurecido hidrata y se opera sin errores en jsdom. jsdom **no aplica** CSP ni SRI, así que eso no prueba que el navegador acepte la política. Antes de publicar: abrir una vista previa de Vercel en Chrome, Firefox y Safari con la consola abierta y recorrer el relevamiento; cualquier bloqueo aparece como `Refused to …`.
@@ -186,7 +189,7 @@ Decisiones de diseño:
 **Para activarlo** (una sola vez)
 1. Subir el repositorio a GitHub (el CI y Vercel se disparan con el mismo push).
 2. Variable de repositorio `SITE_URL` (Settings → Secrets and variables → Actions → Variables) = `https://tu-dominio`. Sin ella la verificación programada solo emite una advertencia y no verifica nada.
-3. **Igualar el entorno de build de Vercel y el del CI**, o los manifiestos no coincidirán: variable de entorno `NEXT_PUBLIC_SITE_URL` en Vercel = `SITE_URL`; versión de Node en Vercel (Settings → Node.js Version) = la de `.nvmrc` (22); y, cuando exista el CRM, `CSP_CONNECT_SRC` igual en ambos lados (en GitHub, como variable de repositorio).
+3. **Igualar el entorno de build de Vercel y el del CI**, o los manifiestos no coincidirán: variable de entorno `NEXT_PUBLIC_SITE_URL` en Vercel = `SITE_URL`; versión de Node en Vercel (Settings → Node.js Version) = la de `.nvmrc` (22); y, con el CRM, `NEXT_PUBLIC_CRM_URL` y `NEXT_PUBLIC_TURNSTILE_SITEKEY` iguales en ambos lados (en GitHub, como variables de repositorio `CRM_URL` y `TURNSTILE_SITEKEY`; entran en el JS del sitio, así que si difieren el manifiesto no coincide). `CSP_CONNECT_SRC` solo si hay otros orígenes.
 4. **Calibrar:** ejecutar `verify-live.yml` a mano (Actions → Run workflow) después del primer despliegue real. Si falla por diferencias que no son una alteración (por ejemplo, una variable distinta), corregir el entorno hasta que pase. Recién entonces dejarlo correr solo.
 5. Activar las incidencias del repositorio y las notificaciones por correo de GitHub para los fallos de Actions.
 
@@ -273,7 +276,7 @@ La arquitectura completa (componentes, zonas de confianza, DNS, secretos y qué 
 
 **Recomendación: A, detrás de Cloudflare.** Mantiene el modelo estático (y con él la CSP por hash), no deja secretos en el front y concentra las defensas en un lugar. Pasar a B solo si se necesita lógica que no deba vivir en Frappe.
 
-### 7.5 Contrato del endpoint (servidor implementado en `landing_crm.api`; el front todavía no lo usa)
+### 7.5 Contrato del endpoint (servidor: `landing_crm.api`; front: `src/model/crm.ts` y `src/controller/registerLead.ts`)
 
 `POST https://crm.tudominio.com/api/method/landing_crm.api.submit_lead` — sin cookies.
 
@@ -319,7 +322,7 @@ Salida: `{ "reference": "ML-261120-0042" }` y nada más (sin ids internos ni dat
 - [ ] Registro de accesos y alertas; actualizaciones de Frappe y del sistema al día; copias de seguridad cifradas y probadas; usuario del sistema sin privilegios.
 - [ ] Retención definida: cuánto tiempo se guardan los `CRM Lead` sin convertir.
 
-**Efectos en este repositorio** al implementarlo: `CSP_CONNECT_SRC` con el origen de Frappe; si se usa Turnstile, hay que permitir `https://challenges.cloudflare.com` en `script-src`, `frame-src` y `connect-src` (y ese script no puede llevar SRI); nuevo flujo "enviando…" y respaldo en `Chat`/`useSurvey`; la frase de privacidad del pie debe cambiar.
+**Efectos en este repositorio** (ya implementados, ver INTEGRACIONES.md I-4): `CSP_CONNECT_SRC` con el origen de Frappe; si se usa Turnstile, hay que permitir `https://challenges.cloudflare.com` en `script-src`, `frame-src` y `connect-src` (y ese script no puede llevar SRI); nuevo flujo "enviando…" y respaldo en `Chat`/`useSurvey`; la frase de privacidad del pie debe cambiar.
 
 ### 7.7 Privacidad y obligaciones legales
 

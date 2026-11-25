@@ -662,6 +662,16 @@ html:has(.selbar:not(.is-leaving)) { scroll-padding-top: calc(var(--header-h) + 
 .alert { padding: 12px 14px; border-radius: var(--radius-s); background: rgba(255, 122, 138, 0.1); border: 1px solid rgba(255, 122, 138, 0.45); color: #ffd0d6; font-size: 14px; animation: rise .3s var(--ease) backwards; }
 .message { width: 100%; border-radius: var(--radius-s); border: 1px solid var(--line-2); background: rgba(0, 0, 0, 0.35); color: var(--text); padding: 12px 14px; transition: border-color .2s ease, box-shadow .2s ease; font: 400 15px/1.55 ui-monospace, 'SFMono-Regular', Menlo, monospace; min-height: 360px; resize: vertical; }
 .message:focus { outline: none; border-color: var(--c); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 25%, transparent); }
+/* Consentimiento para registrar la consulta en el CRM (solo con la conexión activa). */
+.consent { display: grid; gap: 8px; padding: 14px; border-radius: var(--radius-s); border: 1px solid var(--line-2); background: var(--surface); }
+.consent__label { display: flex; gap: 12px; align-items: flex-start; cursor: pointer; font-size: 15px; line-height: 1.5; }
+.consent__box { flex: none; width: 22px; height: 22px; margin-top: 1px; accent-color: var(--cyan); cursor: pointer; }
+.consent__box:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.consent__note { margin-left: 34px; color: var(--muted); font-size: 13px; }
+.consent__widget { margin-left: 34px; }
+.btn--whatsapp[aria-disabled='true'] { opacity: 0.75; cursor: progress; pointer-events: none; }
+.sent__ref { color: var(--muted); }
+.sent__ref strong { color: var(--text); font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace; letter-spacing: 0.04em; }
 .sent__icon { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: var(--wa); color: #04210f; animation: pop .6s var(--ease) .15s backwards; }
 .sent__icon .icon { width: 32px; height: 32px; }
 

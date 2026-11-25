@@ -4,19 +4,38 @@
  * Persiste en sessionStorage para no perder respuestas al cambiar de idioma.
  * ============================================================ */
 import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { site } from '@/config/site';
 import { buildSections } from '@/model/catalog';
+import { buildSubmission, crmEnabled, newIdempotencyKey } from '@/model/crm';
 import { buildFlow } from '@/model/flow';
-import { buildLines, buildMessage, buildWhatsAppUrl, createReference } from '@/model/message';
-import type { AnswerValue, Locale, ServiceId } from '@/model/types';
+import { DICTIONARIES } from '@/model/i18n';
+import { buildLines, buildMessage, buildWhatsAppUrl, createReference, replaceReference } from '@/model/message';
+import type { Answers, AnswerValue, Locale, ServiceId } from '@/model/types';
 import { criticalProgress } from '@/model/validation';
+import { registerLead } from './registerLead';
 import { RESUME_ATTR, STORAGE_KEY } from './resume';
 import { initialState, surveyReducer, type SurveyState } from './surveyReducer';
 
 /** Espera tras la última tecla antes de guardar: evita serializar y escribir el estado completo en cada pulsación. */
 const SAVE_DELAY_MS = 250;
 
+/** Resultado de intentar registrar la consulta: el texto final para WhatsApp y si quedó en el CRM. */
+export interface SendOutcome {
+  text: string;
+  registered: boolean;
+}
+
+/** Lo que `register` necesita del widget de Turnstile (ver controller/turnstile.ts). */
+export interface TokenSource {
+  getToken: (waitMs: number) => Promise<string | null>;
+  consume: () => void;
+}
+
 export function useSurvey(locale: Locale) {
   const [state, dispatch] = useReducer(surveyReducer, initialState);
+  /** Referencia que emitió el servidor, si la consulta quedó registrada en esta visita (no se guarda: es solo para mostrarla). */
+  const [registeredReference, setRegisteredReference] = useState<string | null>(null);
+  const attempt = useRef<{ answers: Answers; selected: ServiceId[]; origin: string; key: string } | null>(null);
   // `ready`: ya se leyó el almacenamiento. Hasta entonces no se guarda nada, o se pisaría lo guardado con el
   // estado vacío (en desarrollo, Strict Mode ejecuta los efectos dos veces y lo hacía).
   const [ready, setReady] = useState(false);
@@ -122,6 +141,39 @@ export function useSurvey(locale: Locale) {
 
   const whatsappUrl = useCallback(() => buildWhatsAppUrl(message), [message]);
 
+  /** Misma clave mientras el contenido no cambie: un reintento (respuesta perdida, clic doble) no crea otra consulta; si el cliente edita, sí. */
+  const keyFor = useCallback(() => {
+    const last = attempt.current;
+    if (last && last.answers === state.answers && last.selected === state.selected && last.origin === state.origin) return last.key;
+    attempt.current = { answers: state.answers, selected: state.selected, origin: state.origin, key: newIdempotencyKey() };
+    return attempt.current.key;
+  }, [state.answers, state.selected, state.origin]);
+
+  /**
+   * Registra la consulta en el CRM (si el cliente lo consintió) y devuelve el texto que va a WhatsApp. Nunca lanza y siempre
+   * devuelve un texto enviable: si algo falla, el mensaje sale con su referencia local marcada «sin registro».
+   */
+  const register = useCallback(
+    async ({ consent, turnstile }: { consent: boolean; turnstile: TokenSource }): Promise<SendOutcome> => {
+      const local = state.reference;
+      const unregistered = (): SendOutcome => ({
+        text: crmEnabled() ? replaceReference(message, local, `${local} (${DICTIONARIES[locale].message.unregistered})`) : message,
+        registered: false,
+      });
+      if (!consent || !crmEnabled()) return unregistered();
+
+      const token = await turnstile.getToken(site.crm.tokenWaitMs);
+      if (!token) return unregistered();
+      const submission = buildSubmission({ locale, selected: state.selected, sections, answers: state.answers, origin: state.origin, idempotencyKey: keyFor(), turnstile: token });
+      const result = await registerLead(submission, { url: site.crm.url, timeoutMs: site.crm.timeoutMs });
+      turnstile.consume(); // el token es de un solo uso, haya salido bien o no
+      if (!result.ok) return unregistered();
+      setRegisteredReference(result.reference);
+      return { text: replaceReference(message, local, result.reference), registered: true };
+    },
+    [locale, message, sections, state.answers, state.origin, state.reference, state.selected, keyFor],
+  );
+
   return {
     state,
     sections,
@@ -131,6 +183,8 @@ export function useSurvey(locale: Locale) {
     progress,
     message,
     whatsappUrl,
+    register,
+    registeredReference,
     actions,
   };
 }

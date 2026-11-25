@@ -135,22 +135,46 @@ export function buildWhatsAppUrl(text: string, phone: string = site.whatsapp): s
   return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
 }
 
-/** Alfabeto de la referencia: sin I, O, 0 ni 1, que se confunden al leer o dictar. */
-const REFERENCE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-export const REFERENCE_PATTERN = /^ML-\d{6}-[A-HJ-NP-Z2-9]{4}$/;
+/**
+ * Hay dos clases de referencia, y se distinguen a simple vista:
+ *   · la LOCAL (`ML-261120-AB3K`) la arma el navegador; lleva siempre al menos una letra y nunca usa 0, 1, I ni O;
+ *   · la del SERVIDOR (`ML-261120-0042`) es la serie de Frappe: cuatro dígitos, un contador por día.
+ * Como la local siempre trae una letra, ninguna puede confundirse con la otra.
+ */
+const REFERENCE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+const REFERENCE_ALPHABET = `${REFERENCE_LETTERS}23456789`;
+const LOCAL_REFERENCE = /^ML-\d{6}-[A-HJ-NP-Z2-9]{4}$/;
+export const SERVER_REFERENCE_PATTERN = /^ML-\d{6}-\d{4}$/;
+export const REFERENCE_PATTERN = /^ML-\d{6}-(?:[A-HJ-NP-Z2-9]{4}|\d{4})$/;
 
-/** ¿Tiene el formato de una referencia generada por `createReference`? No prueba que sea auténtica (nada la firma). */
+/** ¿Tiene el formato de una referencia, local o del servidor? No prueba que sea auténtica (nada la firma). */
 export function isValidReference(value: unknown): value is string {
   return typeof value === 'string' && REFERENCE_PATTERN.test(value);
 }
 
-/** Referencia corta para identificar la consulta: ML-AAMMDD-XXXX. */
+/** ¿Es una referencia emitida por el servidor (la consulta quedó registrada en el CRM)? */
+export function isServerReference(value: unknown): value is string {
+  return typeof value === 'string' && SERVER_REFERENCE_PATTERN.test(value);
+}
+
+/** ¿Es una referencia armada en el navegador? Las viejas, sin letra obligatoria, también valen mientras tengan el formato. */
+export function isLocalReference(value: unknown): value is string {
+  return typeof value === 'string' && LOCAL_REFERENCE.test(value);
+}
+
+/** Referencia local para identificar la consulta: ML-AAMMDD-XXXX. La primera posición es siempre una letra. */
 export function createReference(date: Date = new Date(), random: () => number = Math.random): string {
   const yy = String(date.getFullYear()).slice(-2);
   const mm = String(date.getMonth() + 1).padStart(2, '0');
   const dd = String(date.getDate()).padStart(2, '0');
-  const suffix = Array.from({ length: 4 }, () => REFERENCE_ALPHABET[Math.floor(random() * REFERENCE_ALPHABET.length)]).join('');
+  const pick = (alphabet: string) => alphabet[Math.floor(random() * alphabet.length)];
+  const suffix = [pick(REFERENCE_LETTERS), ...Array.from({ length: 3 }, () => pick(REFERENCE_ALPHABET))].join('');
   return `ML-${yy}${mm}${dd}-${suffix}`;
+}
+
+/** Cambia la referencia dentro de un texto (también si el cliente lo editó a mano). Sin esa referencia, lo devuelve igual. */
+export function replaceReference(text: string, from: string, to: string): string {
+  return from && text.includes(from) ? text.split(from).join(to) : text;
 }
 
 /** Por encima de este largo de URL algunos navegadores móviles truncan el enlace. */

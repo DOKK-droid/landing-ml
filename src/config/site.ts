@@ -10,6 +10,21 @@ export const site = {
   email: 'mjcl1995@gmail.com',
   linkedin: 'https://www.linkedin.com/in/mariano-jose-correa-lemos-466b49120/',
   url: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://landing-ml.vercel.app',
+  /**
+   * Conexión con el CRM (docs/INTEGRACIONES.md, I-4). Sin las dos variables de build el sitio se comporta como antes:
+   * no hay casilla de consentimiento, ni widget, ni llamadas de red, y el mensaje sale solo por WhatsApp.
+   * Las dos son públicas (terminan en el navegador) y tienen que ser iguales en Vercel y en el CI, o el manifiesto no coincide.
+   */
+  crm: {
+    /** Origen de la API, sin ruta (por ejemplo `https://api.atlasdigi.org`). La ruta del método está fija en `controller/registerLead.ts`. */
+    url: process.env.NEXT_PUBLIC_CRM_URL ?? '',
+    /** Clave pública (Site key) del widget de Turnstile. La secreta vive solo en el servidor de Frappe. */
+    turnstileSiteKey: process.env.NEXT_PUBLIC_TURNSTILE_SITEKEY ?? '',
+    /** Tope de la llamada al CRM: pasado este tiempo el cliente sigue a WhatsApp sin registro. */
+    timeoutMs: 4000,
+    /** Cuánto se espera el token de Turnstile al enviar, si todavía no llegó. */
+    tokenWaitMs: 3000,
+  },
   /** Límite de caracteres de cada texto libre largo: mantiene el enlace de WhatsApp en un tamaño seguro. */
   maxTextLength: 600,
   /** Límite de los campos de una línea (nombre, correo, ciudad, rubro). */

@@ -71,6 +71,9 @@ jobs:
           VERCEL_GIT_COMMIT_SHA: ${{ steps.deployed.outputs.sha }}
           NEXT_PUBLIC_SITE_URL: ${{ vars.SITE_URL }}
           CSP_CONNECT_SRC: ${{ vars.CSP_CONNECT_SRC }}
+          # La conexión con el CRM: el valor entra en el JS del sitio, así que tiene que ser el mismo que el de Vercel.
+          NEXT_PUBLIC_CRM_URL: ${{ vars.CRM_URL }}
+          NEXT_PUBLIC_TURNSTILE_SITEKEY: ${{ vars.TURNSTILE_SITEKEY }}
         run: |
           npm ci --ignore-scripts
           npm run build

@@ -47,13 +47,17 @@ export interface Dictionary {
   review: {
     title: string; lead: string; send: string; copy: string; copied: string; edit: string;
     sent: string; restart: string; tooLong: string;
+    /** Registro de la consulta en el CRM (solo si el sitio tiene la conexión activa). */
+    consent: string; consentNote: string; registering: string; reference: string;
   };
   message: {
     greeting: string; greetingNamed: (name: string) => string; title: string; ref: string; services: string;
     consult: string; consultValue: (f: OfferFigures) => string;
     origin: string; footer: string; closing: string;
+    /** Marca junto a la referencia local cuando la consulta no quedó en el CRM. */
+    unregistered: string;
   };
-  footer: { privacy: string; rights: (year: number) => string; whatsapp: string; email: string; linkedin: string };
+  footer: { privacy: string; /** Reemplaza a `privacy` cuando el sitio registra consultas. */ privacyCrm: string; rights: (year: number) => string; whatsapp: string; email: string; linkedin: string };
 }
 
 const es: Dictionary = {
@@ -175,6 +179,10 @@ const es: Dictionary = {
     sent: 'Gracias. Nos comunicaremos a la brevedad para coordinar la videollamada.',
     restart: 'Nuevo relevamiento',
     tooLong: 'El mensaje es muy extenso; considere acortar los textos libres.',
+    consent: 'Acepto que Mariano Lemos Barbaro guarde mis respuestas y mis datos de contacto para atender esta consulta y darle seguimiento.',
+    consentNote: 'Es opcional: si no lo marca, el mensaje se envía igual por WhatsApp y no se guarda nada en el sitio.',
+    registering: 'Registrando su consulta…',
+    reference: 'Su referencia',
   },
   message: {
     greeting: 'Hola Mariano, quiero hacer una consulta.',
@@ -187,9 +195,11 @@ const es: Dictionary = {
     origin: 'origen',
     footer: 'Enviado desde',
     closing: 'Quedo a la espera para coordinar la videollamada.',
+    unregistered: 'sin registro',
   },
   footer: {
     privacy: 'Este sitio no guarda sus datos: el resumen se arma en su dispositivo y usted decide si lo envía por WhatsApp.',
+    privacyCrm: 'El resumen se arma en su dispositivo y usted decide si lo envía por WhatsApp. Solo si lo autoriza, registramos sus respuestas y datos de contacto para dar seguimiento a su consulta.',
     rights: (y) => `© ${y} Mariano Lemos Barbaro`,
     whatsapp: 'WhatsApp',
     email: 'Correo',
@@ -316,6 +326,10 @@ const pt: Dictionary = {
     sent: 'Obrigado. Entraremos em contato em breve para agendar a videochamada.',
     restart: 'Novo levantamento',
     tooLong: 'A mensagem está muito longa; considere encurtar os textos livres.',
+    consent: 'Aceito que Mariano Lemos Barbaro guarde minhas respostas e meus dados de contato para atender esta consulta e dar seguimento a ela.',
+    consentNote: 'É opcional: se você não marcar, a mensagem é enviada mesmo assim pelo WhatsApp e nada é guardado no site.',
+    registering: 'Registrando sua consulta…',
+    reference: 'Sua referência',
   },
   message: {
     greeting: 'Olá Mariano, gostaria de fazer uma consulta.',
@@ -328,9 +342,11 @@ const pt: Dictionary = {
     origin: 'origem',
     footer: 'Enviado de',
     closing: 'Aguardo para agendarmos a videochamada.',
+    unregistered: 'sem registro',
   },
   footer: {
     privacy: 'Este site não armazena seus dados: o resumo é montado no seu dispositivo e você decide se o envia pelo WhatsApp.',
+    privacyCrm: 'O resumo é montado no seu dispositivo e você decide se o envia pelo WhatsApp. Somente se você autorizar, registramos suas respostas e dados de contato para dar seguimento à sua consulta.',
     rights: (y) => `© ${y} Mariano Lemos Barbaro`,
     whatsapp: 'WhatsApp',
     email: 'E-mail',
@@ -457,6 +473,10 @@ const en: Dictionary = {
     sent: 'Thank you. We will get back to you shortly to schedule the video call.',
     restart: 'New assessment',
     tooLong: 'The message is very long; consider shortening the free-text answers.',
+    consent: 'I agree that Mariano Lemos Barbaro stores my answers and contact details to handle and follow up on this inquiry.',
+    consentNote: 'This is optional: if you leave it unticked, the message is still sent via WhatsApp and nothing is stored on the site.',
+    registering: 'Registering your inquiry…',
+    reference: 'Your reference',
   },
   message: {
     greeting: "Hi Mariano, I'd like to make an inquiry.",
@@ -469,9 +489,11 @@ const en: Dictionary = {
     origin: 'source',
     footer: 'Sent from',
     closing: 'Looking forward to scheduling the video call.',
+    unregistered: 'not registered',
   },
   footer: {
     privacy: 'This site does not store your data: the summary is built on your device and you decide whether to send it via WhatsApp.',
+    privacyCrm: 'The summary is built on your device and you decide whether to send it via WhatsApp. Only if you allow it, we store your answers and contact details to follow up on your inquiry.',
     rights: (y) => `© ${y} Mariano Lemos Barbaro`,
     whatsapp: 'WhatsApp',
     email: 'Email',

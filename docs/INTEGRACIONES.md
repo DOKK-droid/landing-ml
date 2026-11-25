@@ -153,12 +153,12 @@ Qué se configura:
 - **Access** con política de identidad para el personal (correo + proveedor de identidad), complementado por el 2FA del propio Frappe.
 - **Turnstile**: un widget para el sitio (clave pública) y una clave secreta que se guarda solo en el servidor.
 
-Cambios en este repositorio *(hoy solo existe `CSP_CONNECT_SRC`)*:
+Cambios en este repositorio *(hechos; se activan con dos variables de build, `NEXT_PUBLIC_CRM_URL` y `NEXT_PUBLIC_TURNSTILE_SITEKEY`)*:
 
 | Qué habilita | Cambio en la CSP |
 |---|---|
-| Llamar a Frappe | `connect-src` con `https://crm.tudominio.com` → variable `CSP_CONNECT_SRC` (ya existe) |
-| Mostrar Turnstile | `script-src` y `frame-src` con `https://challenges.cloudflare.com`; hay que agregar opciones equivalentes a `CSP_CONNECT_SRC` en `scripts/harden-build.mjs` |
+| Llamar a Frappe | `connect-src` con el origen de `NEXT_PUBLIC_CRM_URL` (`https://api.tudominio.com`); `CSP_CONNECT_SRC` queda para otros orígenes |
+| Mostrar Turnstile | `script-src`, `frame-src` y `connect-src` con `https://challenges.cloudflare.com`, solo si están las dos variables (`scripts/harden-build.mjs`) |
 
 Ese script de Turnstile **no puede llevar SRI** (el proveedor lo actualiza). Es una concesión consciente: se acota con el origen exacto.
 
@@ -185,7 +185,7 @@ Para una persona que atiende el negocio y no es administradora de sistemas, **Fr
 - los servicios de interés como texto legible, y el relevamiento como JSON más una *FCRM Note* con el resumen;
 - validación completa contra el catálogo (`landing_crm/data/catalog.json`, generado con `scripts/export-catalog.mjs`), idempotencia y respuesta mínima.
 
-**Estado:** el servidor está implementado y probado (`landing_crm`: 17 pruebas de validación y 14 de integración). Faltan el secreto de Turnstile en el sitio (`turnstile_secret`), CORS, y el cambio del front (I-4). Sin el secreto el endpoint rechaza todo: falla cerrado.
+**Estado:** el servidor está implementado y probado (`landing_crm`: 17 pruebas de validación y 14 de integración), publicado por el túnel, con `turnstile_secret` y CORS cargados. Falta activar el front (I-4) y probar el extremo a extremo con un navegador real. Sin `turnstile_secret` el endpoint rechaza todo: falla cerrado.
 
 **Endurecimiento del servidor:** acceso SSH solo con llaves y sin contraseña, cortafuegos que solo admita el Tunnel (o Cloudflare), actualizaciones de seguridad automáticas, usuario del sistema sin privilegios, 2FA obligatoria para el personal, desactivar el registro de usuarios, registros y alertas.
 
@@ -207,6 +207,10 @@ Cambios previstos en este repositorio:
 | `src/model/message.ts` | Subir `SURVEY_VERSION`; el pie del mensaje puede indicar que la consulta quedó registrada |
 | CSP | Las variables de I-2 |
 | Pruebas | Respuesta exitosa, tiempo agotado, rechazo del servidor, reintento sin duplicar, y que el respaldo a WhatsApp nunca se rompa |
+
+**Estado:** el código está escrito y probado en jsdom (`tests/crm.test.ts`, `tests/crm-flow.test.ts`), y los cuerpos que arma el front se contrastaron contra el parser del servidor. **No está activo**: sin las dos variables de build el sitio se comporta como antes. Antes de activarlo hacen falta: el texto legal y la política de privacidad (los textos de consentimiento y del pie son borradores), las variables en Vercel y en GitHub, el dominio del front en el widget de Turnstile, y una prueba en un navegador real (Turnstile bajo la CSP, y que la pestaña de WhatsApp no se bloquee en Safari/iOS).
+
+Decisiones que ya están tomadas en el código: el registro es **opcional** (casilla de consentimiento desmarcada; sin marcarla, el envío es el enlace a WhatsApp de siempre); el script de Turnstile se carga **recién al marcar el consentimiento**; la pestaña de WhatsApp se abre en el gesto del clic y se la dirige después, para que el navegador no la bloquee; la referencia local lleva siempre una letra (la del servidor son solo dígitos) y, si no hubo registro, sale marcada «sin registro» en el mensaje; `SURVEY_VERSION` no se tocó (las preguntas no cambiaron, así que el catálogo del servidor sigue valiendo).
 
 **Hecho cuando:** un cliente completa el relevamiento, recibe la referencia del servidor, el `CRM Lead` aparece en `/crm/leads` y WhatsApp abre con esa referencia; y con Frappe apagado el cliente igual puede enviar su mensaje.
 
@@ -266,7 +270,7 @@ Cambios previstos en este repositorio:
 | Credenciales de las copias | No | Servidor de Frappe | Repositorio |
 | Contraseña de aplicación de Gmail (SMTP) | No | *Email Account* de Frappe (campo de contraseña, cifrado con la `encryption_key` del `site_config.json`). Se revoca desde la cuenta de Google | Repositorio, chats, correos |
 | Secreto de webhook del pago (I-6) | No | Frappe | Repositorio, navegador |
-| `NEXT_PUBLIC_SITE_URL`, `CSP_CONNECT_SRC` | Sí | Vercel y variables del repositorio de GitHub (**iguales**) | — |
+| `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_CRM_URL`, `NEXT_PUBLIC_TURNSTILE_SITEKEY`, `CSP_CONNECT_SRC` | Sí | Vercel y variables del repositorio de GitHub (**iguales**; en GitHub se llaman `SITE_URL`, `CRM_URL` y `TURNSTILE_SITEKEY`) | — |
 | Usuarios y 2FA del personal | No | Frappe y Access | — |
 
 Regla: si un valor empieza con `NEXT_PUBLIC_` termina en el navegador de cualquiera.

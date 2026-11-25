@@ -16,6 +16,27 @@ import { createHash } from 'node:crypto';
 
 export const ALGORITHM = 'sha256';
 
+/**
+ * Único origen externo que admite la política: el widget anti-bots de Cloudflare (docs/INTEGRACIONES.md, I-2). Su script
+ * no puede llevar SRI porque el proveedor lo actualiza: es una concesión consciente, acotada a este origen exacto y solo
+ * en los builds que activan la conexión con el CRM (`NEXT_PUBLIC_TURNSTILE_SITEKEY`).
+ */
+export const TURNSTILE_ORIGIN = 'https://challenges.cloudflare.com';
+
+/**
+ * Origen (https) de la API del CRM a partir de `NEXT_PUBLIC_CRM_URL`, o '' si no sirve. `http` solo para localhost, para probar.
+ * Hace lo mismo que `crmOrigin` de src/model/crm.ts (el navegador y el build tienen que coincidir): una prueba las compara.
+ */
+export function crmOrigin(url) {
+  try {
+    const parsed = new URL(url);
+    const local = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+    return parsed.protocol === 'https:' || (parsed.protocol === 'http:' && local) ? parsed.origin : '';
+  } catch {
+    return '';
+  }
+}
+
 /** Valor `integrity` (SRI) de unos bytes: "sha256-<base64>". */
 export function sri(data) {
   return `${ALGORITHM}-${createHash(ALGORITHM).update(data).digest('base64')}`;
@@ -107,25 +128,27 @@ function resourceOf(name, attrs) {
 /**
  * Política de contenido para una página. `scriptBodies` son sus scripts en línea; `styles` sus estilos en línea
  * (ver `inlineStyles`). `connect` agrega orígenes permitidos para fetch/XHR (por ejemplo, la API del CRM).
+ * `turnstile: true` admite el widget de Cloudflare: su origen exacto en `script-src`, `frame-src` y `connect-src`.
  * No incluye `frame-ancestors` ni `upgrade-insecure-requests`: un <meta> no los admite (van en vercel.json).
  *
  * Estilos: ni `<style>` ni `style="…"` se admiten "en general". Cada uno se permite por su hash. Los atributos
  * necesitan `'unsafe-hashes'` y su propia directiva (`style-src-attr`). Los estilos que React aplica después de
  * hidratar usan la API CSSOM (`element.style.x = …`), que la CSP no bloquea.
  */
-export function buildCsp(scriptBodies, { connect = [], styles = { elements: [], attributes: [] } } = {}) {
+export function buildCsp(scriptBodies, { connect = [], styles = { elements: [], attributes: [] }, turnstile = false } = {}) {
   const scriptHashes = unique(scriptBodies.map(hashOf));
+  const external = turnstile ? [TURNSTILE_ORIGIN] : [];
   const elementHashes = unique(styles.elements.map(hashOf));
   const attrHashes = unique(styles.attributes.map(hashOf));
   return [
     "default-src 'self'",
-    ['script-src', "'self'", ...scriptHashes].join(' '),
+    ['script-src', "'self'", ...external, ...scriptHashes].join(' '),
     ['style-src', "'self'", ...elementHashes].join(' '),
     attrHashes.length ? ['style-src-attr', "'unsafe-hashes'", ...attrHashes].join(' ') : "style-src-attr 'none'",
     "img-src 'self'",
     "font-src 'self'",
-    ['connect-src', "'self'", ...connect].join(' '),
-    "frame-src 'none'",
+    ['connect-src', "'self'", ...new Set([...connect, ...external])].join(' '),
+    turnstile ? `frame-src ${TURNSTILE_ORIGIN}` : "frame-src 'none'",
     "worker-src 'none'",
     "manifest-src 'self'",
     "object-src 'none'",
@@ -185,7 +208,7 @@ export async function checkHtml(html, readAsset) {
     for (const bad of ["'unsafe-inline'", "'unsafe-eval'", '*', 'data:', 'blob:', 'http:', 'https:']) {
       if (scriptSrc.includes(bad)) problems.push(`script-src admite ${bad}`);
     }
-    if (scriptSrc.some((v) => /^https?:\/\//i.test(v))) problems.push('script-src admite un origen externo');
+    if (scriptSrc.some((v) => /^https?:\/\//i.test(v) && v !== TURNSTILE_ORIGIN)) problems.push('script-src admite un origen externo');
     for (const body of inlineScripts(html)) {
       const hash = `'${sri(Buffer.from(body, 'utf8'))}'`;
       if (!scriptSrc.includes(hash)) problems.push(`Script en línea sin hash en la política: ${JSON.stringify(body.slice(0, 50))}…`);
@@ -205,8 +228,13 @@ export async function checkHtml(html, readAsset) {
     for (const value of styles.attributes) {
       if (!styleAttr.includes(hashOf(value))) problems.push(`Atributo style sin hash en la política: ${JSON.stringify(value.slice(0, 40))}…`);
     }
-    for (const [directive, expected] of [['object-src', "'none'"], ['base-uri', "'none'"], ['frame-src', "'none'"]]) {
+    for (const [directive, expected] of [['object-src', "'none'"], ['base-uri', "'none'"]]) {
       if (!(csp[directive] ?? []).includes(expected)) problems.push(`Falta ${directive} ${expected}`);
+    }
+    // Marcos: ninguno, o solo el widget de Turnstile y nada más (ni junto a otros orígenes).
+    const frameSrc = csp['frame-src'] ?? [];
+    if (!(frameSrc.length === 1 && (frameSrc[0] === "'none'" || frameSrc[0] === TURNSTILE_ORIGIN))) {
+      problems.push(`Falta frame-src 'none' (o solo ${TURNSTILE_ORIGIN})`);
     }
   }
 

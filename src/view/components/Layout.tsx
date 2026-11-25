@@ -1,6 +1,7 @@
 /* Cabecera, selector de idioma, pie y botón de emergencia. */
 import Link from 'next/link';
 import { site } from '@/config/site';
+import { crmEnabled } from '@/model/crm';
 import { DICTIONARIES, LOCALE_NAMES } from '@/model/i18n';
 import { buildWhatsAppUrl } from '@/model/message';
 import { pagePath, type Page } from '@/model/seo';
@@ -107,7 +108,7 @@ export function SiteFooter({ locale }: { locale: Locale }) {
         </ul>
       </div>
       <div className="container footer__legal">
-        <p>{d.footer.privacy}</p>
+        <p>{crmEnabled() ? d.footer.privacyCrm : d.footer.privacy}</p>
         <p>{d.footer.rights(new Date().getFullYear())}</p>
       </div>
     </footer>
