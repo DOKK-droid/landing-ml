@@ -131,8 +131,23 @@ export function buildMessage(input: MessageInput): string {
   return linesToText(buildLines(input));
 }
 
+/**
+ * Caracteres de control (salvo tabulación y saltos de línea) y los invisibles que reordenan u ocultan texto: con ellos un
+ * mensaje puede mostrarse distinto de lo que dice. Es la misma lista que limpia el servidor (`landing_crm/intake/payload.py`).
+ */
+const UNWANTED_CHARACTERS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F​-\u200F\u202A-\u202E\u2066-\u2069﻿]/g;
+
+/** El texto en forma NFC y sin esos caracteres. No escapa nada: WhatsApp no interpreta HTML y la URL la codifica `encodeURIComponent`. */
+export function cleanText(text: string): string {
+  return text.normalize('NFC').replace(UNWANTED_CHARACTERS, '');
+}
+
+/**
+ * El enlace a WhatsApp. `encodeURIComponent` hace que el texto no pueda alterar la dirección (otro número, otro parámetro);
+ * `cleanText` quita lo invisible, también de un mensaje editado a mano.
+ */
 export function buildWhatsAppUrl(text: string, phone: string = site.whatsapp): string {
-  return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+  return `https://wa.me/${phone}?text=${encodeURIComponent(cleanText(text))}`;
 }
 
 /**

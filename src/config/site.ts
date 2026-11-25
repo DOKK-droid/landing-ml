@@ -22,8 +22,13 @@ export const site = {
     turnstileSiteKey: process.env.NEXT_PUBLIC_TURNSTILE_SITEKEY ?? '',
     /** Tope de la llamada al CRM: pasado este tiempo el cliente sigue a WhatsApp sin registro. */
     timeoutMs: 4000,
-    /** Cuánto se espera el token de Turnstile al enviar, si todavía no llegó. */
+    /** Cuánto se espera el token de Turnstile al enviar, si todavía no llegó (el botón ya espera a que esté). */
     tokenWaitMs: 3000,
+    /**
+     * Si Cloudflare sigue verificando por su cuenta pasado este tiempo, se da por fallida la verificación y el botón deja
+     * enviar sin registro. No corre mientras Cloudflare espera una acción del cliente: ahí decide él (completarla o desmarcar).
+     */
+    verifyTimeoutMs: 15000,
   },
   /** Límite de caracteres de cada texto libre largo: mantiene el enlace de WhatsApp en un tamaño seguro. */
   maxTextLength: 600,

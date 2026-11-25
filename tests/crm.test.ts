@@ -7,8 +7,10 @@ import { registerLead, submitUrl, SUBMIT_PATH } from '@/controller/registerLead'
 import { TURNSTILE_ORIGIN as CLIENT_TURNSTILE_ORIGIN } from '@/controller/turnstile';
 import { deliver } from '@/controller/whatsapp';
 import { buildSections } from '@/model/catalog';
-import { answersOf, buildSubmission, crmEnabled, crmOrigin, MAX_OFFER_LENGTH, newIdempotencyKey, offerSummary } from '@/model/crm';
-import { createReference, isLocalReference, isServerReference, isValidReference, REFERENCE_PATTERN, replaceReference, SURVEY_VERSION } from '@/model/message';
+import { answersOf, buildSubmission, crmEnabled, crmOrigin, MAX_MESSAGE_LENGTH, MAX_OFFER_LENGTH, newIdempotencyKey, offerSummary } from '@/model/crm';
+import {
+  buildWhatsAppUrl, cleanText, createReference, isLocalReference, isServerReference, isValidReference, REFERENCE_PATTERN, replaceReference, SURVEY_VERSION,
+} from '@/model/message';
 import { buildCsp, checkHtml, crmOrigin as buildCrmOrigin, hardenHtml, parseCsp, TURNSTILE_ORIGIN } from '../scripts/lib/harden.mjs';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -49,6 +51,14 @@ describe('referencias: local (navegador) y del servidor', () => {
     expect(REFERENCE_PATTERN.test('ML-261124-AB3K')).toBe(true);
   });
 
+  it('el enlace de WhatsApp no lleva caracteres invisibles ni de control, y el texto no puede alterar la dirección', () => {
+    const url = buildWhatsAppUrl('Hola​‍\u202Eolleh﻿\u2066 x\u0000\ny&phone=1#z', '549000');
+    expect(url.startsWith('https://wa.me/549000?text=')).toBe(true);
+    expect(decodeURIComponent(url.split('?text=')[1])).toBe('Holaolleh x\ny&phone=1#z');
+    expect(new URL(url).searchParams.get('phone')).toBeNull(); // el «&phone=» quedó dentro del texto
+    expect(cleanText('é')).toBe('é'); // forma NFC, como el servidor
+  });
+
   it('replaceReference cambia todas las apariciones y no toca un texto sin ella', () => {
     expect(replaceReference('Ref. A y otra vez A', 'A', 'B')).toBe('Ref. B y otra vez B');
     expect(replaceReference('sin nada', 'ML-1', 'ML-2')).toBe('sin nada');
@@ -59,14 +69,17 @@ describe('referencias: local (navegador) y del servidor', () => {
 describe('cuerpo que se envía al servidor', () => {
   const submission = buildSubmission({
     locale: 'es', selected: SELECTED, sections: SECTIONS, answers: ANSWERS, origin: 'tarjeta',
-    idempotencyKey: '0b8f6a52-6d3e-4f3a-9a53-0c3f5f7d9e11', turnstile: 'tok',
+    idempotencyKey: '0b8f6a52-6d3e-4f3a-9a53-0c3f5f7d9e11', visitKey: '5d1c2e7a-0a43-4b8e-9f1c-2a6b3c4d5e6f', turnstile: 'tok',
   });
 
   it('tiene exactamente los campos del contrato', () => {
     expect(Object.keys(submission).sort()).toEqual(
-      ['answers', 'consent', 'form_version', 'idempotency_key', 'locale', 'offer', 'origin', 'services', 'turnstile', 'website'],
+      ['answers', 'consent', 'form_version', 'idempotency_key', 'locale', 'offer', 'origin', 'services', 'turnstile', 'visit_key', 'website'],
     );
-    expect(submission).toMatchObject({ consent: true, website: '', turnstile: 'tok', locale: 'es', origin: 'tarjeta', services: ['ia'], form_version: SURVEY_VERSION });
+    expect(submission).toMatchObject({
+      consent: true, website: '', turnstile: 'tok', locale: 'es', origin: 'tarjeta', services: ['ia'], form_version: SURVEY_VERSION,
+      visit_key: '5d1c2e7a-0a43-4b8e-9f1c-2a6b3c4d5e6f',
+    });
   });
 
   it('manda solo las respuestas del recorrido y con contenido (el servidor descartaría el resto)', () => {
@@ -78,6 +91,14 @@ describe('cuerpo que se envía al servidor', () => {
     expect(submission.offer).toBe('USD 54/h (USD 9/10 min)');
     expect(submission.offer.length).toBeLessThanOrEqual(MAX_OFFER_LENGTH);
     expect(offerSummary(['soporte'])).toBe(''); // el soporte 24/7 no lleva la consulta
+  });
+
+  it('el mensaje editado a mano viaja solo si existe, limpio y dentro del límite del servidor', () => {
+    const base = { locale: 'es' as const, selected: SELECTED, sections: SECTIONS, answers: ANSWERS, origin: '', idempotencyKey: 'k', visitKey: 'v', turnstile: 't' };
+    expect('message' in buildSubmission({ ...base, message: null })).toBe(false);
+    expect('message' in buildSubmission({ ...base, message: '  ' })).toBe(false);
+    expect(buildSubmission({ ...base, message: ' Hola​\u202E mundo﻿\u0007 ' }).message).toBe('Hola mundo');
+    expect(buildSubmission({ ...base, message: 'x'.repeat(MAX_MESSAGE_LENGTH + 50) }).message).toHaveLength(MAX_MESSAGE_LENGTH);
   });
 
   it('la clave de idempotencia es un UUID v4, con o sin randomUUID', () => {
@@ -122,13 +143,21 @@ describe('activación: dos variables de build, o el sitio sigue como antes', () 
 });
 
 describe('registerLead: nunca lanza y siempre dice qué pasó', () => {
-  const submission = buildSubmission({ locale: 'es', selected: SELECTED, sections: SECTIONS, answers: ANSWERS, origin: '', idempotencyKey: 'k', turnstile: 'tok' });
+  const submission = buildSubmission({ locale: 'es', selected: SELECTED, sections: SECTIONS, answers: ANSWERS, origin: '', idempotencyKey: 'k', visitKey: 'v', turnstile: 'tok' });
   const options = (fetchImpl: typeof fetch) => ({ url: 'https://api.ejemplo.com', timeoutMs: 4000, fetchImpl });
   const reply = (body: unknown, status = 200) => vi.fn(async () => new Response(typeof body === 'string' ? body : JSON.stringify(body), { status }));
 
-  it('éxito: devuelve la referencia del servidor', async () => {
-    const fetchImpl = reply({ message: { reference: 'ML-261124-0042' } });
-    expect(await registerLead(submission, options(fetchImpl as unknown as typeof fetch))).toEqual({ ok: true, reference: 'ML-261124-0042' });
+  it('éxito: devuelve la referencia del servidor y qué envío fue', async () => {
+    const fetchImpl = reply({ message: { reference: 'ML-261124-0042', submission: 3 } });
+    expect(await registerLead(submission, options(fetchImpl as unknown as typeof fetch))).toEqual({ ok: true, reference: 'ML-261124-0042', submission: 3 });
+  });
+
+  it('un número de envío ausente (servidor anterior) o raro cuenta como el primero', async () => {
+    for (const value of [undefined, 0, -1, 1.5, '2', 1000, null]) {
+      const fetchImpl = reply({ message: { reference: 'ML-261124-0042', submission: value } });
+      const result = await registerLead(submission, options(fetchImpl as unknown as typeof fetch));
+      expect(result, String(value)).toEqual({ ok: true, reference: 'ML-261124-0042', submission: 1 });
+    }
   });
 
   it('la petición es un POST de JSON, sin cookies, sin seguir redirecciones y con el cuerpo del contrato', async () => {

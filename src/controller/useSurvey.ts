@@ -9,12 +9,13 @@ import { buildSections } from '@/model/catalog';
 import { buildSubmission, crmEnabled, newIdempotencyKey } from '@/model/crm';
 import { buildFlow } from '@/model/flow';
 import { DICTIONARIES } from '@/model/i18n';
-import { buildLines, buildMessage, buildWhatsAppUrl, createReference, replaceReference } from '@/model/message';
+import { buildLines, buildMessage, buildWhatsAppUrl, createReference, isServerReference, replaceReference } from '@/model/message';
 import type { Answers, AnswerValue, Locale, ServiceId } from '@/model/types';
 import { criticalProgress } from '@/model/validation';
 import { registerLead } from './registerLead';
 import { RESUME_ATTR, STORAGE_KEY } from './resume';
 import { initialState, surveyReducer, type SurveyState } from './surveyReducer';
+import { visitKey } from './visit';
 
 /** Espera tras la última tecla antes de guardar: evita serializar y escribir el estado completo en cada pulsación. */
 const SAVE_DELAY_MS = 250;
@@ -25,6 +26,12 @@ export interface SendOutcome {
   registered: boolean;
 }
 
+/** Lo que el CRM respondió en esta visita: la referencia y qué envío de ese `CRM Lead` fue (2 o más: la misma persona reenvió). */
+export interface Registration {
+  reference: string;
+  submission: number;
+}
+
 /** Lo que `register` necesita del widget de Turnstile (ver controller/turnstile.ts). */
 export interface TokenSource {
   getToken: (waitMs: number) => Promise<string | null>;
@@ -33,9 +40,9 @@ export interface TokenSource {
 
 export function useSurvey(locale: Locale) {
   const [state, dispatch] = useReducer(surveyReducer, initialState);
-  /** Referencia que emitió el servidor, si la consulta quedó registrada en esta visita (no se guarda: es solo para mostrarla). */
-  const [registeredReference, setRegisteredReference] = useState<string | null>(null);
-  const attempt = useRef<{ answers: Answers; selected: ServiceId[]; origin: string; key: string } | null>(null);
+  /** Lo que respondió el servidor si el último envío quedó registrado (no se guarda: es solo para mostrarlo al final). */
+  const [registration, setRegistration] = useState<Registration | null>(null);
+  const attempt = useRef<{ answers: Answers; selected: ServiceId[]; origin: string; draft: string | null; key: string } | null>(null);
   // `ready`: ya se leyó el almacenamiento. Hasta entonces no se guarda nada, o se pisaría lo guardado con el
   // estado vacío (en desarrollo, Strict Mode ejecuta los efectos dos veces y lo hacía).
   const [ready, setReady] = useState(false);
@@ -139,39 +146,65 @@ export function useSurvey(locale: Locale) {
     [],
   );
 
-  const whatsappUrl = useCallback(() => buildWhatsAppUrl(message), [message]);
+  /** El texto marcado «sin registro» junto a la referencia (si el sitio tiene la conexión con el CRM). */
+  const markUnregistered = useCallback(
+    (text: string) => crmEnabled() ? replaceReference(text, state.reference, `${state.reference} (${DICTIONARIES[locale].message.unregistered})`) : text,
+    [locale, state.reference],
+  );
 
-  /** Misma clave mientras el contenido no cambie: un reintento (respuesta perdida, clic doble) no crea otra consulta; si el cliente edita, sí. */
+  /**
+   * El enlace de siempre, el que se usa sin consentimiento. Si la consulta ya tiene la referencia del servidor (se registró
+   * antes en esta visita y ahora se reenvía sin registrar), va marcada «sin registro»: esta versión no está en el CRM.
+   */
+  const whatsappUrl = useCallback(
+    () => buildWhatsAppUrl(isServerReference(state.reference) ? markUnregistered(message) : message),
+    [message, state.reference, markUnregistered],
+  );
+
+  /**
+   * Misma clave mientras el contenido no cambie: un reintento (respuesta perdida, clic doble) no crea otra consulta; si el
+   * cliente cambia algo, también el mensaje editado a mano, sí.
+   */
   const keyFor = useCallback(() => {
     const last = attempt.current;
-    if (last && last.answers === state.answers && last.selected === state.selected && last.origin === state.origin) return last.key;
-    attempt.current = { answers: state.answers, selected: state.selected, origin: state.origin, key: newIdempotencyKey() };
+    if (last && last.answers === state.answers && last.selected === state.selected && last.origin === state.origin && last.draft === state.draft) return last.key;
+    attempt.current = { answers: state.answers, selected: state.selected, origin: state.origin, draft: state.draft, key: newIdempotencyKey() };
     return attempt.current.key;
-  }, [state.answers, state.selected, state.origin]);
+  }, [state.answers, state.selected, state.origin, state.draft]);
 
   /**
    * Registra la consulta en el CRM (si el cliente lo consintió) y devuelve el texto que va a WhatsApp. Nunca lanza y siempre
-   * devuelve un texto enviable: si algo falla, el mensaje sale con su referencia local marcada «sin registro».
+   * devuelve un texto enviable: si algo falla, el mensaje sale con su referencia marcada «sin registro».
+   *
+   * Si el servidor lo sumó a un `CRM Lead` anterior de la misma persona (envío 2 o más), el mensaje lo dice junto a la
+   * referencia, que es la misma de antes: «ML-261125-0001 (envío 2)», como el título de la nota en el CRM.
    */
   const register = useCallback(
     async ({ consent, turnstile }: { consent: boolean; turnstile: TokenSource }): Promise<SendOutcome> => {
       const local = state.reference;
-      const unregistered = (): SendOutcome => ({
-        text: crmEnabled() ? replaceReference(message, local, `${local} (${DICTIONARIES[locale].message.unregistered})`) : message,
-        registered: false,
-      });
+      const unregistered = (): SendOutcome => {
+        setRegistration(null);
+        return { text: markUnregistered(message), registered: false };
+      };
       if (!consent || !crmEnabled()) return unregistered();
 
       const token = await turnstile.getToken(site.crm.tokenWaitMs);
       if (!token) return unregistered();
-      const submission = buildSubmission({ locale, selected: state.selected, sections, answers: state.answers, origin: state.origin, idempotencyKey: keyFor(), turnstile: token });
+      const submission = buildSubmission({
+        locale, selected: state.selected, sections, answers: state.answers, origin: state.origin,
+        idempotencyKey: keyFor(), visitKey: visitKey(), turnstile: token, message: state.draft,
+      });
       const result = await registerLead(submission, { url: site.crm.url, timeoutMs: site.crm.timeoutMs });
       turnstile.consume(); // el token es de un solo uso, haya salido bien o no
       if (!result.ok) return unregistered();
-      setRegisteredReference(result.reference);
-      return { text: replaceReference(message, local, result.reference), registered: true };
+      setRegistration({ reference: result.reference, submission: result.submission });
+      dispatch({ type: 'REGISTERED', reference: result.reference });
+      const label = result.submission > 1
+        ? `${result.reference} (${DICTIONARIES[locale].message.followUp(result.submission)})`
+        : result.reference;
+      return { text: replaceReference(message, local, label), registered: true };
     },
-    [locale, message, sections, state.answers, state.origin, state.reference, state.selected, keyFor],
+    [locale, message, sections, state.answers, state.draft, state.origin, state.reference, state.selected, keyFor, markUnregistered],
   );
 
   return {
@@ -184,7 +217,7 @@ export function useSurvey(locale: Locale) {
     message,
     whatsappUrl,
     register,
-    registeredReference,
+    registration,
     actions,
   };
 }

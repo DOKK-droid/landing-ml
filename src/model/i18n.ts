@@ -49,15 +49,22 @@ export interface Dictionary {
     sent: string; restart: string; tooLong: string;
     /** Registro de la consulta en el CRM (solo si el sitio tiene la conexión activa). */
     consent: string; consentNote: string; registering: string; reference: string;
-    /** Bajo el widget: cuando Cloudflare pide una acción y mientras falte, o cuando la verificación no se pudo completar. */
-    verify: string; verifyFailed: string;
+    /**
+     * Bajo el widget, según cómo va la verificación: mientras Cloudflare verifica solo (`checking`), cuando pide una acción y
+     * mientras falte (`verify`), cuando terminó (`verified`) o cuando no se pudo completar (`verifyFailed`).
+     */
+    checking: string; verify: string; verified: string; verifyFailed: string;
+    /** El botón de envío mientras se verifica (no se puede tocar) y cuando la verificación falló (envía sin registro). */
+    verifying: string; sendUnregistered: string;
   };
   message: {
     greeting: string; greetingNamed: (name: string) => string; title: string; ref: string; services: string;
     consult: string; consultValue: (f: OfferFigures) => string;
     origin: string; footer: string; closing: string;
-    /** Marca junto a la referencia local cuando la consulta no quedó en el CRM. */
+    /** Marca junto a la referencia cuando la consulta (o esta versión de ella) no quedó en el CRM. */
     unregistered: string;
+    /** Marca junto a la referencia cuando el CRM sumó el envío a la consulta anterior de la misma persona: «envío 2». */
+    followUp: (n: number) => string;
   };
   footer: { privacy: string; /** Reemplaza a `privacy` cuando el sitio registra consultas. */ privacyCrm: string; rights: (year: number) => string; whatsapp: string; email: string; linkedin: string };
 }
@@ -185,8 +192,12 @@ const es: Dictionary = {
     consentNote: 'Es opcional: si no lo marca, el mensaje se envía igual por WhatsApp y no se guarda nada en el sitio.',
     registering: 'Registrando su consulta…',
     reference: 'Su referencia',
-    verify: 'Complete la verificación de arriba para que se registre su consulta. Si no, el mensaje se envía igual por WhatsApp, sin registro.',
+    checking: 'Verificando la conexión: tarda unos segundos. Si no quiere esperar, desmarque la casilla y el mensaje se envía igual por WhatsApp, sin registro.',
+    verify: 'Complete la verificación de arriba para que se registre su consulta, o desmarque la casilla para enviar por WhatsApp sin registro.',
+    verified: 'Verificación lista: al enviar, su consulta quedará registrada.',
     verifyFailed: 'No se pudo completar la verificación. Puede enviar igual por WhatsApp: su consulta no quedará registrada.',
+    verifying: 'Verificando…',
+    sendUnregistered: 'Enviar por WhatsApp sin registro',
   },
   message: {
     greeting: 'Hola Mariano, quiero hacer una consulta.',
@@ -200,6 +211,7 @@ const es: Dictionary = {
     footer: 'Enviado desde',
     closing: 'Quedo a la espera para coordinar la videollamada.',
     unregistered: 'sin registro',
+    followUp: (n) => `envío ${n}`,
   },
   footer: {
     privacy: 'Este sitio no guarda sus datos: el resumen se arma en su dispositivo y usted decide si lo envía por WhatsApp.',
@@ -334,8 +346,12 @@ const pt: Dictionary = {
     consentNote: 'É opcional: se você não marcar, a mensagem é enviada mesmo assim pelo WhatsApp e nada é guardado no site.',
     registering: 'Registrando sua consulta…',
     reference: 'Sua referência',
-    verify: 'Conclua a verificação acima para que sua consulta seja registrada. Caso contrário, a mensagem é enviada mesmo assim pelo WhatsApp, sem registro.',
+    checking: 'Verificando a conexão: leva alguns segundos. Se não quiser esperar, desmarque a caixa e a mensagem é enviada mesmo assim pelo WhatsApp, sem registro.',
+    verify: 'Conclua a verificação acima para que sua consulta seja registrada, ou desmarque a caixa para enviar pelo WhatsApp sem registro.',
+    verified: 'Verificação concluída: ao enviar, sua consulta ficará registrada.',
     verifyFailed: 'Não foi possível concluir a verificação. Você pode enviar mesmo assim pelo WhatsApp: sua consulta não será registrada.',
+    verifying: 'Verificando…',
+    sendUnregistered: 'Enviar pelo WhatsApp sem registro',
   },
   message: {
     greeting: 'Olá Mariano, gostaria de fazer uma consulta.',
@@ -349,6 +365,7 @@ const pt: Dictionary = {
     footer: 'Enviado de',
     closing: 'Aguardo para agendarmos a videochamada.',
     unregistered: 'sem registro',
+    followUp: (n) => `envio ${n}`,
   },
   footer: {
     privacy: 'Este site não armazena seus dados: o resumo é montado no seu dispositivo e você decide se o envia pelo WhatsApp.',
@@ -483,8 +500,12 @@ const en: Dictionary = {
     consentNote: 'This is optional: if you leave it unticked, the message is still sent via WhatsApp and nothing is stored on the site.',
     registering: 'Registering your inquiry…',
     reference: 'Your reference',
-    verify: 'Complete the verification above so your inquiry is registered. Otherwise the message is still sent via WhatsApp, without being registered.',
+    checking: 'Checking your connection: this takes a few seconds. If you would rather not wait, untick the box and the message is still sent via WhatsApp, without being registered.',
+    verify: 'Complete the verification above so your inquiry is registered, or untick the box to send via WhatsApp without registering it.',
+    verified: 'Verification done: when you send, your inquiry will be registered.',
     verifyFailed: 'The verification could not be completed. You can still send via WhatsApp: your inquiry will not be registered.',
+    verifying: 'Verifying…',
+    sendUnregistered: 'Send via WhatsApp without registering',
   },
   message: {
     greeting: "Hi Mariano, I'd like to make an inquiry.",
@@ -498,6 +519,7 @@ const en: Dictionary = {
     footer: 'Sent from',
     closing: 'Looking forward to scheduling the video call.',
     unregistered: 'not registered',
+    followUp: (n) => `submission ${n}`,
   },
   footer: {
     privacy: 'This site does not store your data: the summary is built on your device and you decide whether to send it via WhatsApp.',

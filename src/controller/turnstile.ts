@@ -5,6 +5,9 @@
  * El script NO está en el HTML: se pide solo cuando el cliente marca el consentimiento. Así, quien no acepta el registro
  * nunca habla con `challenges.cloudflare.com`. No lleva SRI (el proveedor lo actualiza); se acota con el origen exacto en la
  * CSP (scripts/lib/harden.mjs). El token es de un solo uso y vence a los 5 minutos: la verificación la hace el servidor.
+ *
+ * El widget se ve siempre que hay consentimiento (`appearance: 'always'`): el cliente ve que se está verificando y cuándo
+ * terminó. Con `interaction-only` aparecía solo si Cloudflare pedía un desafío, y tarde: parecía que no pasaba nada.
  * ============================================================ */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Locale } from '@/model/types';
@@ -49,10 +52,11 @@ const WIDGET_LANGUAGE: Record<Locale, string> = { es: 'es', pt: 'pt-br', en: 'en
 /**
  * En qué punto está la verificación:
  *   · `idle`: todavía no se pidió (el cliente no consintió);
- *   · `pending`: Cloudflare está verificando por su cuenta, sin mostrar nada;
- *   · `interactive`: Cloudflare necesita que el cliente haga algo (el widget se ve);
+ *   · `pending`: Cloudflare está verificando por su cuenta;
+ *   · `interactive`: Cloudflare necesita que el cliente haga algo (marcar la casilla del widget);
  *   · `ready`: hay un token vigente;
- *   · `failed`: no se pudo cargar o completar (sin script, sin red, error del widget).
+ *   · `failed`: no se pudo cargar o completar (sin script, sin red, error del widget, o `pending` por más de `timeoutMs`).
+ *     Si después llega un token, vuelve a `ready`.
  */
 export type TurnstileStatus = 'idle' | 'pending' | 'interactive' | 'ready' | 'failed';
 
@@ -66,11 +70,10 @@ export interface TurnstileHandle {
   consume: () => void;
 }
 
-/**
- * Dibuja el widget cuando `enabled` y guarda el token. `appearance: 'interaction-only'`: el widget solo se ve si
- * Cloudflare necesita que el cliente haga algo; si no, trabaja sin mostrarse.
- */
-export function useTurnstile({ enabled, siteKey, locale }: { enabled: boolean; siteKey: string; locale: Locale }): TurnstileHandle {
+/** Dibuja el widget cuando `enabled` y guarda el token. */
+export function useTurnstile({ enabled, siteKey, locale, timeoutMs }: {
+  enabled: boolean; siteKey: string; locale: Locale; timeoutMs: number;
+}): TurnstileHandle {
   const containerRef = useRef<HTMLDivElement>(null);
   const token = useRef<string | null>(null);
   const widget = useRef<string | null>(null);
@@ -92,7 +95,7 @@ export function useTurnstile({ enabled, siteKey, locale }: { enabled: boolean; s
         api = loaded;
         widget.current = loaded.render(container, {
           sitekey: siteKey,
-          appearance: 'interaction-only',
+          appearance: 'always',
           // El sitio es oscuro: con el tema por defecto el widget sale como una caja blanca.
           theme: 'dark',
           language: WIDGET_LANGUAGE[locale],
@@ -130,6 +133,14 @@ export function useTurnstile({ enabled, siteKey, locale }: { enabled: boolean; s
       widget.current = null;
     };
   }, [enabled, siteKey, locale]);
+
+  // Una verificación que no termina (red lenta, un bloqueador que deja cargar el script pero no el widget) no puede
+  // dejar al cliente esperando sin salida: pasado el tope cuenta como fallida y el botón deja enviar sin registro.
+  useEffect(() => {
+    if (status !== 'pending') return;
+    const timer = window.setTimeout(() => setStatus((now) => (now === 'pending' ? 'failed' : now)), timeoutMs);
+    return () => window.clearTimeout(timer);
+  }, [status, timeoutMs]);
 
   const getToken = useCallback((waitMs: number) => {
     if (token.current) return Promise.resolve(token.current);

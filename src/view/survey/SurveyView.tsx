@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { site } from '@/config/site';
 import { useTurnstile } from '@/controller/turnstile';
-import type { SurveyController } from '@/controller/useSurvey';
+import type { Registration, SurveyController } from '@/controller/useSurvey';
 import { deliver, openPending } from '@/controller/whatsapp';
 import { crmEnabled } from '@/model/crm';
 import { DICTIONARIES } from '@/model/i18n';
@@ -28,7 +28,7 @@ export function SurveyView({ locale, ctrl }: { locale: Locale; ctrl: SurveyContr
     if (state.phase === 'review') headingRef.current?.focus();
   }, [state.phase]);
 
-  if (state.phase === 'sent') return <SentView locale={locale} reference={ctrl.registeredReference} onRestart={actions.restart} />;
+  if (state.phase === 'sent') return <SentView locale={locale} registration={ctrl.registration} onRestart={actions.restart} />;
 
   return (
     <main className="survey container" id="contenido">
@@ -80,7 +80,15 @@ function ReviewView({ locale, ctrl, headingRef, stepLabel }: {
   const url = ctrl.whatsappUrl();
   // El registro es opcional y solo existe con la conexión activa. El widget aparece (y se carga su script) recién al consentir.
   const crm = crmEnabled();
-  const turnstile = useTurnstile({ enabled: crm && consent, siteKey: site.crm.turnstileSiteKey, locale });
+  const turnstile = useTurnstile({ enabled: crm && consent, siteKey: site.crm.turnstileSiteKey, locale, timeoutMs: site.crm.verifyTimeoutMs });
+  const registering = crm && consent;
+  // Con consentimiento, el botón espera a la verificación: enviar antes mandaba el mensaje sin registro sin que se notara.
+  // Si la verificación falla, el botón lo dice y envía sin registro; desmarcar la casilla siempre deja enviar al instante.
+  const verifying = registering && turnstile.status !== 'ready' && turnstile.status !== 'failed';
+  const unverified = registering && turnstile.status === 'failed';
+  const hint = !registering ? '' : {
+    idle: d.checking, pending: d.checking, interactive: d.verify, ready: d.verified, failed: d.verifyFailed,
+  }[turnstile.status];
 
   const copy = async () => {
     try {
@@ -96,19 +104,20 @@ function ReviewView({ locale, ctrl, headingRef, stepLabel }: {
    * Con consentimiento se registra primero y recién después se abre WhatsApp. Como eso es asíncrono, la pestaña se abre YA, en
    * el mismo gesto del clic (después de un `await` el navegador la tomaría por una ventana emergente y la bloquearía) y se la
    * dirige a WhatsApp cuando hay respuesta o se agota el tiempo. Si el navegador no deja abrirla, se navega en esta misma pestaña.
-   * Sin consentimiento (o sin CRM) no se toca nada: es el enlace de siempre.
+   * Sin consentimiento (o sin CRM) no se toca nada: es el enlace de siempre. Mientras se verifica, el botón no hace nada.
    */
   const send = async (event: React.MouseEvent<HTMLAnchorElement>) => {
-    if (!crm || !consent) {
+    if (!registering) {
       setTimeout(ctrl.actions.markSent, 400);
       return;
     }
     event.preventDefault();
-    if (sending) return;
+    if (sending || verifying) return;
     setSending(true);
     const popup = openPending();
     try {
-      const { text } = await ctrl.register({ consent, turnstile });
+      // Verificación fallida: no hay token que esperar; sale ya, con la referencia local marcada «sin registro».
+      const { text } = await ctrl.register({ consent: !unverified, turnstile });
       deliver(popup, buildWhatsAppUrl(text));
     } catch {
       // `register` no lanza; esto es la red de seguridad: el cliente nunca se queda sin su WhatsApp.
@@ -136,13 +145,11 @@ function ReviewView({ locale, ctrl, headingRef, stepLabel }: {
             <span>{d.consent}</span>
           </label>
           <p className="consent__note">{d.consentNote}</p>
-          {/* Turnstile dibuja acá solo si hace falta una interacción; si no, queda sin altura. */}
+          {/* Turnstile dibuja acá su recuadro; el espacio queda reservado desde que se marca la casilla, así nada salta al cargar. */}
           {consent && <div className="consent__widget" ref={turnstile.containerRef} />}
-          {/* Siempre presente mientras hay consentimiento, para que el lector de pantalla anuncie el cambio de texto. Sin texto, no se ve. */}
+          {/* Siempre presente mientras hay consentimiento, para que el lector de pantalla anuncie el cambio de texto. */}
           {consent && (
-            <p className="consent__hint" role="status">
-              {turnstile.status === 'interactive' ? d.verify : turnstile.status === 'failed' ? d.verifyFailed : ''}
-            </p>
+            <p className={`consent__hint${turnstile.status === 'ready' ? ' consent__hint--ok' : ''}`} role="status">{hint}</p>
           )}
         </div>
       )}
@@ -160,18 +167,21 @@ function ReviewView({ locale, ctrl, headingRef, stepLabel }: {
           target="_blank"
           rel="noopener noreferrer"
           onClick={send}
-          aria-busy={sending || undefined}
-          aria-disabled={sending || undefined}
+          aria-busy={sending || verifying || undefined}
+          aria-disabled={sending || verifying || undefined}
         >
-          <WhatsAppIcon className="icon" /> {sending ? d.registering : d.send}
+          <WhatsAppIcon className="icon" /> {sending ? d.registering : verifying ? d.verifying : unverified ? d.sendUnregistered : d.send}
         </a>
       </div>
     </section>
   );
 }
 
-function SentView({ locale, reference, onRestart }: { locale: Locale; reference: string | null; onRestart: () => void }) {
+function SentView({ locale, registration, onRestart }: { locale: Locale; registration: Registration | null; onRestart: () => void }) {
   const d = DICTIONARIES[locale].review;
+  const reference = registration
+    ? `${registration.reference}${registration.submission > 1 ? ` (${DICTIONARIES[locale].message.followUp(registration.submission)})` : ''}`
+    : null;
   return (
     <main className="survey container" id="contenido">
       <div className="survey__frame">

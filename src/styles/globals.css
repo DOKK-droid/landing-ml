@@ -669,8 +669,10 @@ html:has(.selbar:not(.is-leaving)) { scroll-padding-top: calc(var(--header-h) + 
 .consent__box { flex: none; width: 22px; height: 22px; margin-top: 1px; accent-color: var(--cyan); cursor: pointer; }
 .consent__box:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .consent__note { margin-left: 34px; color: var(--muted); font-size: 13px; }
-.consent__widget { margin-left: 34px; }
+/* El recuadro de Turnstile mide 300 × 65: se reserva su alto desde que se marca la casilla, así nada salta cuando carga. */
+.consent__widget { margin-left: 34px; min-height: 65px; }
 .consent__hint { margin-left: 34px; color: var(--amber); font-size: 13px; }
+.consent__hint--ok { color: var(--wa); }
 .consent__hint:empty { display: none; }
 .btn--whatsapp[aria-disabled='true'] { opacity: 0.75; cursor: progress; pointer-events: none; }
 .sent__ref { color: var(--muted); }
@@ -692,6 +694,8 @@ html:has(.selbar:not(.is-leaving)) { scroll-padding-top: calc(var(--header-h) + 
   /* Sin sangría del avatar: en pantallas angostas la respuesta aprovecha todo el ancho */
   .answer { padding-left: 0; }
   .bubble--intro { margin-left: 0; }
+  /* Los 300 px del widget de Turnstile no entran con la sangría en un teléfono angosto */
+  .consent__widget { margin-left: 0; }
 }
 @media (min-width: 640px) {
   .chat__banner { padding: 18px 24px 15px; }

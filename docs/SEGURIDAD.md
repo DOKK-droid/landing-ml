@@ -255,7 +255,8 @@ Se usa la app **Frappe CRM** (`crm` 16.3.0, rama `version-16`): una consulta que
 | Servicios de interés | Campo propio `landing_services` (los títulos, legibles; los ids quedan en el JSON). No usar la tabla estándar `products`: es de productos con precio (cantidad, tarifa, descuento) |
 | Respuestas del relevamiento | Un campo propio `landing_answers` (JSON: ids estables, no textos, más los servicios y el origen), **y** una *FCRM Note* con el resumen legible, que el CRM muestra en la ficha del `CRM Lead`. El contenido de la nota se escapa: viene del navegador |
 | Referencia, versión del formulario, idioma | Campos propios `landing_reference`, `landing_form_version` y `landing_language` |
-| Clave de idempotencia | Campo propio `landing_idempotency_key`, con índice único en la base |
+| Clave de idempotencia | Campo propio `landing_idempotency_key`, con índice único en la base: la del **último** envío del `CRM Lead` |
+| Clave de visita | Campo propio `landing_visit_key` (oculto, con índice). Todos los envíos de una misma pestaña van al mismo `CRM Lead`: ver 7.5 |
 | Origen (`tarjeta`) | Campo **estándar** `source`, un enlace a *CRM Lead Source*: `tarjeta` → *Tarjeta*, cualquier otro → *Landing*. No crear otro campo con ese nombre |
 | Oferta vista (USD 54 la hora = USD 9 cada 10 min; tarifa por tramos de duración) | Campo propio `landing_offer` |
 | Consentimiento | `landing_consent` y `landing_consent_date` (la fecha la pone el servidor) |
@@ -287,6 +288,8 @@ Entrada (JSON):
 | Campo | Tipo | Regla en el servidor |
 |---|---|---|
 | `idempotency_key` | UUID generado por el navegador | Si ya existe, devuelve la referencia del `CRM Lead` previo **sin volver a verificar Turnstile** (el token de un reintento ya se gastó). La base tiene un índice único: dos envíos simultáneos con la misma clave no crean dos. No es una credencial |
+| `visit_key` | UUID, opcional | Uno por pestaña (sessionStorage `ml-visit`; se crea recién al registrar). El envío se suma al `CRM Lead` de esa clave **solo si** ese lead sigue abierto (sin convertir y en un estado que no sea del tipo *Lost*: *Unqualified*, *Junk*) **y** es la misma persona: el nombre (sin distinguir mayúsculas ni acentos) o el correo coinciden con los del lead o con los del envío anterior. Una pestaña no es una persona (computadora compartida, el teléfono de Mariano pasando de mano en mano). Entonces no se crea otro lead: se suma una *FCRM Note* «Relevamiento ML-… · envío N» y se devuelve **la misma referencia**. Las correcciones de contacto se aplican al lead salvo en un campo que Mariano haya editado desde el último envío, y un dato vacío no borra nada; la nota lista cada cambio y si se aplicó. Las mismas respuestas otra vez no suman nota. Si no se cumplen las dos condiciones, se crea un lead nuevo cuya nota apunta al de la misma pestaña. Como solo esa pestaña conoce la clave, nadie más puede sumar envíos a ese lead ni enterarse de su referencia. Un valor que no es UUID se rechaza |
+| `message` | texto, opcional | El mensaje de WhatsApp **solo si el cliente lo editó a mano** (puede decir algo que las respuestas no: otro correo, una aclaración). Hasta 8000 caracteres, limpiado como el resto, y escapado en la nota. Editarlo es otro envío (otra clave de idempotencia) |
 | `locale` | `es`, `pt` o `en` | Lista cerrada |
 | `form_version` | entero | Tiene que ser igual a la versión del catálogo que tiene el servidor (hoy 3); otra se rechaza |
 | `origin` | texto | Solo `[a-z0-9_-]{1,24}`. Un origen conocido (`tarjeta`) va a su *CRM Lead Source*; cualquier otro, a *Landing* |
@@ -297,7 +300,13 @@ Entrada (JSON):
 | `turnstile` | token | Hasta 2048 caracteres; se verifica contra `https://challenges.cloudflare.com/turnstile/v0/siteverify` (tope de 4 s). Sin `turnstile_secret` en el sitio, o si Cloudflare no responde, se rechaza |
 | `website` | texto | Campo señuelo (honeypot): con contenido, no se guarda nada y se responde como si todo hubiera ido bien, con la referencia `ML-AAMMDD-0000` (la serie real empieza en 0001) |
 
-Salida: `{ "reference": "ML-261120-0042" }` y nada más (sin ids internos ni datos del `CRM Lead`).
+Salida: `{ "reference": "ML-261120-0042", "submission": 1 }` y nada más (sin ids internos ni datos del `CRM Lead`). `submission` es qué envío de ese lead fue: más de 1 solo para la misma persona desde la misma pestaña, que ya conocía la referencia. El front lo muestra junto a ella («ML-261120-0042 (envío 2)»), en WhatsApp y en la pantalla final, igual que el título de la nota en el CRM; y desde que hay respuesta, la consulta usa la referencia del servidor (arriba, en el mensaje y en un reenvío). Un reenvío sin consentimiento sale con esa referencia marcada «sin registro».
+
+**La misma persona en otra visita** (otro día, otro dispositivo) no se junta sola: cualquiera puede escribir el correo o el nombre de otro, y juntar por eso permitiría sumar notas al `CRM Lead` ajeno o, por la referencia devuelta, enterarse de que esa persona ya consultó. Se crea un `CRM Lead` nuevo, y su nota avisa «Posible duplicado: mismo correo (o nombre) que ML-…», con el enlace al anterior, para que Mariano decida. La respuesta al visitante es la misma en los dos casos. Es lo mismo que hace Frappe: todo visitante es el usuario *Guest* (sin sesión ni identidad propia) y los formularios web del CRM crean un lead por envío; la clave de visita solo agrega la agrupación que se puede probar.
+
+**Si el CRM rechaza la actualización** de un lead (por ejemplo, el correo nuevo es el del responsable del lead, que el CRM no admite), el envío no se pierde: se guardan los campos `landing_*` sin los cambios de contacto y la nota dice qué no se aplicó y por qué.
+
+**Limpieza de lo que escribe el cliente.** En el navegador, cada campo tiene su largo máximo y el texto de WhatsApp pasa a forma NFC y sin caracteres de control ni invisibles que reordenan el texto (`cleanText`); `encodeURIComponent` impide que el texto cambie la dirección de `wa.me`. WhatsApp no interpreta HTML, así que no hay nada que escapar. En el servidor, `payload.parse` vuelve a hacer todo (la limpieza del navegador no cuenta: se puede saltear) y valida contra el catálogo; la nota escapa cada valor, y además Frappe sanea el HTML de los campos al guardar.
 
 **Orden de las comprobaciones** (lo barato primero; Turnstile, que ocupa un worker mientras espera a la red, al final): límite por IP → tamaño del cuerpo (64 KB) → honeypot → forma del cuerpo → clave ya registrada → token de Turnstile → alta.
 

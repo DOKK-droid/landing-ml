@@ -5,7 +5,7 @@
  * ============================================================ */
 import { site } from '@/config/site';
 import { consultationApplies, offerFigures } from './offer';
-import { SURVEY_VERSION } from './message';
+import { cleanText, SURVEY_VERSION } from './message';
 import { isEmpty } from './validation';
 import type { Answers, Locale, Section, ServiceId } from './types';
 
@@ -14,6 +14,8 @@ export const MAX_OFFER_LENGTH = 140;
 
 export interface LeadSubmission {
   idempotency_key: string;
+  /** La misma en todos los envíos de esta pestaña: el servidor los junta en un solo `CRM Lead`, con una sola referencia. */
+  visit_key: string;
   locale: Locale;
   form_version: number;
   origin: string;
@@ -24,7 +26,15 @@ export interface LeadSubmission {
   turnstile: string;
   /** Señuelo (honeypot): el sitio nunca lo completa; solo lo llenaría un robot que arma el cuerpo a mano. */
   website: '';
+  /**
+   * El texto de WhatsApp, solo si el cliente lo editó a mano: entonces puede decir algo que las respuestas no dicen (otro
+   * correo, una aclaración), y Mariano lo ve en la nota del `CRM Lead`. Sin editar no viaja: sería repetir las respuestas.
+   */
+  message?: string;
 }
+
+/** Límite del campo `message` en el servidor: más largo, rechaza la consulta entera. */
+export const MAX_MESSAGE_LENGTH = 8000;
 
 /** ¿Está activa la conexión con el CRM? Necesita el origen de la API y la clave pública de Turnstile. */
 export function crmEnabled(config: { url: string; turnstileSiteKey: string } = site.crm): boolean {
@@ -69,12 +79,19 @@ export interface SubmissionInput {
   answers: Answers;
   origin: string;
   idempotencyKey: string;
+  visitKey: string;
   turnstile: string;
+  /** El mensaje editado a mano (`null` o vacío: no se editó). */
+  message?: string | null;
 }
 
 export function buildSubmission(input: SubmissionInput): LeadSubmission {
+  // Se limpia antes de cortar, como lo hará el servidor: así lo que llega nunca pasa su límite.
+  const message = input.message ? cleanText(input.message).trim().slice(0, MAX_MESSAGE_LENGTH) : '';
   return {
+    ...(message ? { message } : {}),
     idempotency_key: input.idempotencyKey,
+    visit_key: input.visitKey,
     locale: input.locale,
     form_version: SURVEY_VERSION,
     origin: input.origin,
@@ -87,7 +104,7 @@ export function buildSubmission(input: SubmissionInput): LeadSubmission {
   };
 }
 
-/** UUID v4 para la clave de idempotencia. `randomUUID` solo existe en contextos seguros (https, localhost): sin él se arma con `getRandomValues`. */
+/** UUID v4 para la clave de idempotencia y la de visita. `randomUUID` solo existe en contextos seguros (https, localhost): sin él se arma con `getRandomValues`. */
 export function newIdempotencyKey(): string {
   const c = globalThis.crypto;
   if (typeof c?.randomUUID === 'function') return c.randomUUID();

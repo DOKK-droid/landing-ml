@@ -10,7 +10,7 @@
 import { site } from '@/config/site';
 import { buildSections, isServiceId } from '@/model/catalog';
 import { buildFlow, firstStepOfSection } from '@/model/flow';
-import { isValidReference } from '@/model/message';
+import { isServerReference, isValidReference } from '@/model/message';
 import { normalizeOrigin, validateQuestion } from '@/model/validation';
 import type { AnswerValue, Answers, Errors, Section, ServiceId } from '@/model/types';
 
@@ -43,6 +43,7 @@ export type SurveyAction =
   | { type: 'EXIT' }
   | { type: 'SET_DRAFT'; text: string }
   | { type: 'SENT' }
+  | { type: 'REGISTERED'; reference: string }
   | { type: 'RESTART' }
   | { type: 'HYDRATE'; state: SurveyState };
 
@@ -134,6 +135,14 @@ export function surveyReducer(state: SurveyState, action: SurveyAction): SurveyS
 
     case 'SENT':
       return { ...state, phase: 'sent' };
+
+    case 'REGISTERED': {
+      // Desde que el CRM la registró, la consulta usa la referencia del servidor: arriba, en el mensaje (también en el
+      // editado a mano) y en un reenvío. Así el cliente ve la misma referencia que llegó a WhatsApp y al CRM.
+      if (!isServerReference(action.reference) || action.reference === state.reference) return state;
+      const draft = state.draft && state.reference ? state.draft.split(state.reference).join(action.reference) : state.draft;
+      return { ...state, reference: action.reference, draft };
+    }
 
     case 'RESTART':
       return { ...initialState, origin: state.origin };

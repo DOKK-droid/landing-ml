@@ -12,7 +12,16 @@ import { crmOrigin, type LeadSubmission } from '@/model/crm';
 export const SUBMIT_PATH = '/api/method/landing_crm.api.submit_lead';
 
 export type RegisterFailure = 'disabled' | 'timeout' | 'network' | 'rejected' | 'invalid';
-export type RegisterResult = { ok: true; reference: string } | { ok: false; reason: RegisterFailure };
+/**
+ * `submission`: qué envío del `CRM Lead` fue este. 1 lo creó; más de 1 es la misma persona, desde la misma pestaña, que
+ * volvió a enviar (el servidor lo sumó como nota al mismo `CRM Lead`, con la misma referencia).
+ */
+export type RegisterResult = { ok: true; reference: string; submission: number } | { ok: false; reason: RegisterFailure };
+
+/** Un número de envío razonable, o 1 si el servidor no lo manda (versión anterior) o manda algo raro. */
+function submissionNumber(value: unknown): number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 999 ? value : 1;
+}
 
 export interface RegisterOptions {
   /** Origen de la API (`site.crm.url`). */
@@ -54,8 +63,11 @@ export async function registerLead(submission: LeadSubmission, { url, timeoutMs,
       if (controller.signal.aborted || (error as { name?: string })?.name === 'AbortError') throw error;
       return { ok: false, reason: 'invalid' };
     }
-    const reference = (body as { message?: { reference?: unknown } } | null)?.message?.reference;
-    return isServerReference(reference) ? { ok: true, reference } : { ok: false, reason: 'invalid' };
+    const answer = (body as { message?: { reference?: unknown; submission?: unknown } } | null)?.message;
+    const reference = answer?.reference;
+    return isServerReference(reference)
+      ? { ok: true, reference, submission: submissionNumber(answer?.submission) }
+      : { ok: false, reason: 'invalid' };
   } catch (error) {
     return { ok: false, reason: controller.signal.aborted || (error as { name?: string })?.name === 'AbortError' ? 'timeout' : 'network' };
   } finally {

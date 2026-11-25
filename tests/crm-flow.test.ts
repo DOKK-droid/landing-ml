@@ -7,6 +7,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { site } from '@/config/site';
 import { STORAGE_KEY } from '@/controller/resume';
+import { VISIT_STORAGE_KEY } from '@/controller/visit';
 import { SURVEY_VERSION } from '@/model/message';
 import { App } from '@/view/App';
 
@@ -165,7 +166,8 @@ describe('con la conexión activa', () => {
     await flush();
     expect($('.consent__widget')).not.toBeNull();
     expect(turnstile.render).toHaveBeenCalledTimes(1);
-    expect(turnstile.render.mock.calls[0][1]).toMatchObject({ sitekey: 'site-key', language: 'es', appearance: 'interaction-only' });
+    // Siempre visible: con `interaction-only` aparecía solo ante un desafío, y tarde; parecía que no pasaba nada.
+    expect(turnstile.render.mock.calls[0][1]).toMatchObject({ sitekey: 'site-key', language: 'es', appearance: 'always' });
   });
 
   it('el widget sigue el tema oscuro del sitio (con el de fábrica sale como una caja blanca)', async () => {
@@ -179,32 +181,34 @@ describe('con la conexión activa', () => {
   describe('aviso bajo el widget', () => {
     const hint = () => text('.consent__hint');
 
-    it('no hay aviso mientras Cloudflare verifica solo, ni cuando el token ya llegó', async () => {
-      widgetGives('tok-1');
+    it('dice que está verificando y, cuando llega el token, que la consulta se registrará', async () => {
+      widgetGives(null);
       await mountInReview();
       expect($('.consent__hint')).toBeNull(); // sin consentimiento no hay nada
       await click(consentBox());
-      await flush();
-      expect(hint()).toBe('');
+      expect(hint()).toMatch(/Verificando la conexión/); // ya en el mismo clic, antes de que cargue nada
+      expect(hint()).toMatch(/desmarque la casilla/); // y cómo no esperar
+      await widgetEvent('callback', 'tok-1');
+      expect(hint()).toMatch(/Verificación lista/);
+      expect($('.consent__hint')!.className).toContain('consent__hint--ok');
     });
 
-    it('aparece cuando Cloudflare pide una acción y mientras falte el token, y se va al completarla', async () => {
+    it('cuando Cloudflare pide una acción lo dice, con la salida de desmarcar, hasta que llega el token', async () => {
       widgetGives(null);
       await mountInReview();
       await click(consentBox());
       await flush();
-      expect(hint()).toBe('');
 
       await widgetEvent('before-interactive-callback');
       expect(hint()).toMatch(/Complete la verificación de arriba/);
-      expect(hint()).toMatch(/igual por WhatsApp/); // dice qué pasa si no la completa
+      expect(hint()).toMatch(/desmarque la casilla para enviar por WhatsApp sin registro/);
 
       await widgetEvent('after-interactive-callback'); // la hizo, falta que llegue el token
-      expect(hint()).toBe('');
+      expect(hint()).toMatch(/Verificando la conexión/);
       await widgetEvent('before-interactive-callback');
-      expect(hint()).not.toBe('');
+      expect(hint()).toMatch(/Complete la verificación/);
       await widgetEvent('callback', 'tok-1'); // llegó el token
-      expect(hint()).toBe('');
+      expect(hint()).toMatch(/Verificación lista/);
     });
 
     it('es un aviso para lectores de pantalla (role="status")', async () => {
@@ -223,9 +227,12 @@ describe('con la conexión activa', () => {
       await widgetEvent('error-callback');
       expect(hint()).toMatch(/No se pudo completar la verificación/);
       expect(hint()).toMatch(/su consulta no quedará registrada/);
+      expect(sendLink()!.textContent).toMatch(/Enviar por WhatsApp sin registro/);
+      expect(sendLink()!.getAttribute('aria-disabled')).toBeNull();
 
       await click(sendLink());
-      await flush(site.crm.tokenWaitMs);
+      await flush(); // sin token que esperar: sale ya
+      expect(fetchMock).not.toHaveBeenCalled();
       expect(whatsapp().message).toContain(`${LOCAL} (sin registro)`);
     });
 
@@ -349,29 +356,193 @@ describe('con la conexión activa', () => {
     expect(sendLink()!.getAttribute('aria-busy')).toBeNull();
   });
 
-  it('si Turnstile no entrega un token a tiempo, no se llama al CRM y WhatsApp se abre igual', async () => {
-    widgetGives(null);
-    await mountInReview();
-    await click(consentBox());
-    await flush();
-    await click(sendLink());
-    await flush(site.crm.tokenWaitMs);
+  describe('el botón espera a la verificación', () => {
+    it('mientras Cloudflare verifica, el botón dice «Verificando…» y tocarlo no envía nada', async () => {
+      widgetGives(null);
+      await mountInReview();
+      await click(consentBox());
+      await flush();
+      expect(sendLink()!.textContent).toMatch(/Verificando…/);
+      expect(sendLink()!.getAttribute('aria-disabled')).toBe('true');
 
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(whatsapp().message).toContain(`${LOCAL} (sin registro)`);
+      await click(sendLink());
+      await flush(site.crm.tokenWaitMs);
+      expect(prevented).toBe(true); // tampoco sigue el enlace: saldría sin registro sin que se note
+      expect(window.open).not.toHaveBeenCalled();
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('también mientras Cloudflare espera que el cliente complete el desafío, sin tope de tiempo', async () => {
+      widgetGives(null);
+      await mountInReview();
+      await click(consentBox());
+      await flush();
+      await widgetEvent('before-interactive-callback');
+      await flush(site.crm.verifyTimeoutMs * 2);
+      expect(sendLink()!.getAttribute('aria-disabled')).toBe('true');
+    });
+
+    it('cuando llega el token se habilita y registra', async () => {
+      widgetGives(null);
+      reply(200, { message: { reference: SERVER } });
+      await mountInReview();
+      await click(consentBox());
+      await flush();
+      await widgetEvent('callback', 'tok-1');
+      expect(sendLink()!.textContent).toMatch(/Enviar por WhatsApp$/);
+      expect(sendLink()!.getAttribute('aria-disabled')).toBeNull();
+
+      await click(sendLink());
+      await flush();
+      expect(whatsapp().message).toContain(`Ref. ${SERVER}`);
+    });
+
+    it('desmarcar la casilla deja enviar al instante, con el enlace de siempre', async () => {
+      widgetGives(null);
+      await mountInReview();
+      await click(consentBox());
+      await flush();
+      await click(consentBox());
+      expect(sendLink()!.getAttribute('aria-disabled')).toBeNull();
+      await click(sendLink());
+      expect(prevented).toBe(false);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('si la verificación no termina, al tope deja enviar sin registro (y si el token llega después, vuelve a registrar)', async () => {
+      widgetGives(null);
+      await mountInReview();
+      await click(consentBox());
+      await flush(site.crm.verifyTimeoutMs - 1);
+      expect(sendLink()!.getAttribute('aria-disabled')).toBe('true');
+      await flush(1);
+      expect(sendLink()!.getAttribute('aria-disabled')).toBeNull();
+      expect(sendLink()!.textContent).toMatch(/sin registro/);
+      expect(text('.consent__hint')).toMatch(/No se pudo completar la verificación/);
+
+      await widgetEvent('callback', 'tok-1');
+      expect(sendLink()!.textContent).toMatch(/Enviar por WhatsApp$/);
+    });
+
+    it('si el script de Turnstile no carga (bloqueado, sin red), al tope igual se llega a WhatsApp', async () => {
+      delete window.turnstile; // y el <script> que se agrega al <head> nunca llama a onload
+      await mountInReview();
+      await click(consentBox());
+      await flush();
+      expect(document.head.querySelector('script[src^="https://challenges.cloudflare.com/"]')).not.toBeNull();
+      await flush(site.crm.verifyTimeoutMs);
+      await click(sendLink());
+      await flush();
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(whatsapp().message).toContain(`${LOCAL} (sin registro)`);
+    });
   });
 
-  it('si el script de Turnstile no carga (bloqueado, sin red), igual se llega a WhatsApp', async () => {
-    delete window.turnstile; // y el <script> que se agrega al <head> nunca llama a onload
+  it('todos los envíos de la pestaña llevan la misma clave de visita (el CRM los junta en un solo lead)', async () => {
+    widgetGives('tok-1');
+    reply(200, { message: { reference: SERVER } });
     await mountInReview();
     await click(consentBox());
     await flush();
-    expect(document.head.querySelector('script[src^="https://challenges.cloudflare.com/"]')).not.toBeNull();
     await click(sendLink());
-    await flush(site.crm.tokenWaitMs);
+    await flush();
+    popup.location.href = '';
+    await click(sendLink()); // otro envío desde la misma pestaña
+    await flush();
 
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(whatsapp().message).toContain(`${LOCAL} (sin registro)`);
+    const bodies = fetchMock.mock.calls.map(([, init]) => JSON.parse((init as RequestInit).body as string));
+    expect(bodies).toHaveLength(2);
+    expect(bodies[0].visit_key).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(bodies[1].visit_key).toBe(bodies[0].visit_key);
+    expect(sessionStorage.getItem(VISIT_STORAGE_KEY)).toBe(bodies[0].visit_key); // sobrevive al cambio de idioma
+  });
+
+  it('sin consentimiento no se crea la clave de visita', async () => {
+    await mountInReview();
+    await click(sendLink());
+    expect(sessionStorage.getItem(VISIT_STORAGE_KEY)).toBeNull();
+  });
+
+  describe('después de registrar', () => {
+    const editDraft = (value: string) => act(async () => {
+      const area = $<HTMLTextAreaElement>('#msg')!;
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(area, value);
+      area.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const bodies = () => fetchMock.mock.calls.map(([, init]) => JSON.parse((init as RequestInit).body as string));
+
+    it('la consulta adopta la referencia del servidor: arriba, en el mensaje y en lo guardado', async () => {
+      widgetGives('tok-1');
+      reply(200, { message: { reference: SERVER, submission: 1 } });
+      await mountInReview();
+      expect(text('.survey__ref')).toBe(LOCAL);
+      await click(consentBox());
+      await flush();
+      await click(sendLink());
+      await flush(300); // antes de pasar a la pantalla final
+
+      expect(text('.survey__ref')).toBe(SERVER);
+      expect($<HTMLTextAreaElement>('#msg')!.value).toContain(`Ref. ${SERVER}`);
+      await flush(500);
+      expect(JSON.parse(sessionStorage.getItem(STORAGE_KEY)!).reference).toBe(SERVER);
+    });
+
+    it('si el servidor lo sumó a la consulta anterior de la misma persona, WhatsApp y la pantalla final dicen «envío 2»', async () => {
+      widgetGives('tok-1');
+      reply(200, { message: { reference: SERVER, submission: 2 } });
+      await mountInReview();
+      await click(consentBox());
+      await flush();
+      await click(sendLink());
+      await flush();
+      expect(whatsapp().message).toContain(`Ref. ${SERVER} (envío 2)`);
+      await flush(500);
+      expect(text('.sent__ref')).toContain(`${SERVER} (envío 2)`);
+    });
+
+    it('el mensaje editado a mano viaja al CRM (y sin editar no viaja)', async () => {
+      widgetGives('tok-1');
+      reply(200, { message: { reference: SERVER, submission: 1 } });
+      await mountInReview();
+      await click(consentBox());
+      await flush();
+      await click(sendLink());
+      await flush();
+      expect('message' in bodies()[0]).toBe(false);
+
+      await editDraft(`Corrijo: mi correo es ana@ejemplo.com (${SERVER})`);
+      popup.location.href = '';
+      await click(sendLink());
+      await flush();
+      const [first, second] = bodies();
+      expect(second.message).toBe(`Corrijo: mi correo es ana@ejemplo.com (${SERVER})`);
+      expect(second.idempotency_key).not.toBe(first.idempotency_key); // editar el texto es otro envío
+    });
+
+    it('una edición a mano hecha antes de registrar cambia también su referencia por la del servidor', async () => {
+      widgetGives('tok-1');
+      reply(200, { message: { reference: SERVER, submission: 1 } });
+      await mountInReview();
+      await editDraft(`Mi consulta ${LOCAL}`);
+      await click(consentBox());
+      await flush();
+      await click(sendLink());
+      await flush();
+      expect($<HTMLTextAreaElement>('#msg')!.value).toBe(`Mi consulta ${SERVER}`);
+    });
+
+    it('si después se desmarca la casilla y se reenvía, el enlace marca esa versión «sin registro»', async () => {
+      widgetGives('tok-1');
+      reply(200, { message: { reference: SERVER, submission: 1 } });
+      await mountInReview();
+      await click(consentBox());
+      await flush();
+      await click(sendLink());
+      await flush();
+      await click(consentBox());
+      expect(decodeURIComponent(sendLink()!.href.split('?text=')[1])).toContain(`Ref. ${SERVER} (sin registro)`);
+    });
   });
 
   it('un segundo clic mientras se registra no manda otra consulta', async () => {
