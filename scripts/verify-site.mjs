@@ -62,7 +62,7 @@ let pages;
 if (dir) {
   pages = walk(dir).filter((f) => f.endsWith('.html')).map((f) => '/' + relative(dir, f).split(sep).join(posix.sep));
 } else {
-  pages = ['/', '/es/', '/pt/', '/en/'];
+  pages = ['/', '/es/', '/pt/', '/en/', '/es/tarifas/', '/pt/tarifas/', '/en/tarifas/'];
 }
 
 for (const page of pages) {
