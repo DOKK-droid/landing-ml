@@ -7,11 +7,11 @@ Qué hace el sitio para que los buscadores lo entiendan, y qué queda por hacer 
 | Pieza | Dónde | Qué hace |
 |---|---|---|
 | `robots.txt` | `src/app/robots.ts` | Permite todo y apunta al sitemap. La raíz `/` no se bloquea: solo redirige y lleva `noindex` en su propia página, y un robot bloqueado no llegaría a leerlo. |
-| `sitemap.xml` | `src/app/sitemap.ts` | Una entrada por idioma (`/es/`, `/pt/`, `/en/`), cada una con todas las versiones. Sin fechas: una fecha que cambiara en cada build rompería el manifiesto de integridad. |
-| `hreflang` | `src/app/[locale]/layout.tsx` + `src/model/seo.ts` | `es`, `pt`, `en` y `x-default` (el español) en el HTML de cada página y en el sitemap. |
-| Canónico | `src/app/[locale]/layout.tsx` | Cada idioma es su propia página canónica. |
-| Open Graph | `src/app/[locale]/layout.tsx` | Título, descripción, nombre del sitio y código de idioma con territorio (`es_LA`, `pt_BR`, `en_US`), más los idiomas alternativos. |
-| Datos estructurados | `src/model/seo.ts` → `src/app/[locale]/page.tsx` | JSON-LD de schema.org con el sitio, la página, la persona y el servicio. Dice solo lo que la página ya muestra (nombre, cargo, servicios, teléfono, LinkedIn). |
+| `sitemap.xml` | `src/app/sitemap.ts` | Una entrada por página e idioma (el inicio `/es/`, `/pt/`, `/en/` y las tarifas `/es/tarifas/`, `/pt/tarifas/`, `/en/tarifas/`), cada una con todas las versiones de *esa* página. Sin fechas: una fecha que cambiara en cada build rompería el manifiesto de integridad. |
+| `hreflang` | `src/app/[locale]/pageMeta.ts` + `src/model/seo.ts` | `es`, `pt`, `en` y `x-default` (el español) en el HTML de cada página y en el sitemap. |
+| Canónico | `src/app/[locale]/pageMeta.ts` | Cada página en cada idioma es su propia página canónica. Next combina los metadatos de layout y página de forma superficial, así que cada página (inicio, tarifas) declara los suyos completos con `pageMeta()`. |
+| Open Graph | `src/app/[locale]/pageMeta.ts` | Título, descripción, nombre del sitio y código de idioma con territorio (`es_LA`, `pt_BR`, `en_US`), más los idiomas alternativos. |
+| Datos estructurados | `src/model/seo.ts` → `src/app/[locale]/page.tsx` | JSON-LD de schema.org con el sitio, la página, la persona y el servicio. Dice solo lo que la página ya muestra (nombre, cargo, servicios, teléfono, LinkedIn). Solo el inicio lo lleva; las tarifas no tienen datos estructurados propios. |
 
 Todo sale de **una sola dirección base**, `NEXT_PUBLIC_SITE_URL`. Si no está definida el sitio usa `https://landing-ml.vercel.app`, que **no es el sitio publicado**: el canónico, el sitemap y los datos estructurados apuntarían a otra página. Definirla en Vercel (Settings → Environment Variables) con la dirección real, sin barra final, y hacer un redeploy. Hay una prueba que comprueba que robots.txt, sitemap, canónico y JSON-LD usan la misma base.
 

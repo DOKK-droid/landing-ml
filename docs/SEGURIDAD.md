@@ -237,17 +237,29 @@ Hoy la decisión es **sin base de datos**: el registro es la conversación de Wh
 
 Un visitante anónimo es `Guest` en Frappe. **No hay que darle sesión**: una sesión es una credencial, y repartirlas a desconocidos agranda el riesgo sin aportar nada. La sesión de Frappe corresponde solo a Mariano y su equipo (escritorio de Frappe), con 2FA, y no tiene relación con el sitio público. El front público llama a **un único método de invitado** sin cookies.
 
-### 7.3 "Customer o CRM": un contacto nuevo es un Lead
+### 7.3 "Customer o CRM": un contacto nuevo es un `CRM Lead`
 
-En ERPNext y en la app Frappe CRM, una consulta que llega por primera vez es un **Lead** (en la app CRM, `CRM Lead`; verificar el nombre en la versión instalada). El **Customer** se crea al convertirlo, cuando hay una relación comercial. Registrar cada consulta como Customer ensuciaría el maestro de clientes.
+Se usa la app **Frappe CRM** (`crm` 16.3.0, rama `version-16`): una consulta que llega por primera vez es un **`CRM Lead`**, el DocType que lista `/crm/leads`. El `Lead` de ERPNext pertenece al escritorio clásico y **no se usa**: un registro creado ahí no aparece en la interfaz del CRM. Al convertir el `CRM Lead` (cuando hay una relación comercial) se crea un `CRM Deal`; el **Customer** de ERPNext es un paso posterior y opcional (*ERPNext CRM Settings*). Registrar cada consulta como Customer ensuciaría el maestro de clientes.
 
 | Dato del relevamiento | Dónde va en Frappe |
 |---|---|
-| Nombre y apellido, correo, empresa, ciudad y país | Campos estándar del Lead |
-| Servicios de interés | Campo de selección múltiple o tabla hija (`Service Interest`) |
-| Respuestas del relevamiento | Un campo JSON o texto con el mensaje, más la versión del formulario; las claves son ids estables, no textos |
-| Referencia, versión del formulario, idioma, origen (`tarjeta`) | Campos propios del Lead (`reference`, `form_version`, `language`, `source`) |
-| Oferta vista (USD 54 la hora = USD 9 cada 10 min; total por tramos) | Campo propio |
+| Nombre y apellido (`p_nombre`: un solo campo, obligatorio) | `first_name`, **completo y sin partir**: adivinar dónde termina el nombre falla con nombres compuestos. El CRM arma `lead_name` solo |
+| Correo (`p_correo`, opcional en el formulario) | `email` (el CRM valida el formato) |
+| Empresa u organización (`p_org`) | `organization` (texto; al convertir en `CRM Deal` el CRM crea la *CRM Organization*) |
+| Ciudad y país (`p_ubicacion`: un solo campo de texto) | Campo propio `landing_location`. `territory` es un enlace a una lista cerrada y no sirve para texto libre |
+| Servicios de interés | Campo propio `landing_services` (los títulos, legibles; los ids quedan en el JSON). No usar la tabla estándar `products`: es de productos con precio (cantidad, tarifa, descuento) |
+| Respuestas del relevamiento | Un campo propio `landing_answers` (JSON: ids estables, no textos, más los servicios y el origen), **y** una *FCRM Note* con el resumen legible, que el CRM muestra en la ficha del `CRM Lead`. El contenido de la nota se escapa: viene del navegador |
+| Referencia, versión del formulario, idioma | Campos propios `landing_reference`, `landing_form_version` y `landing_language` |
+| Clave de idempotencia | Campo propio `landing_idempotency_key`, con índice único en la base |
+| Origen (`tarjeta`) | Campo **estándar** `source`, un enlace a *CRM Lead Source*: `tarjeta` → *Tarjeta*, cualquier otro → *Landing*. No crear otro campo con ese nombre |
+| Oferta vista (USD 54 la hora = USD 9 cada 10 min; tarifa por tramos de duración) | Campo propio `landing_offer` |
+| Consentimiento | `landing_consent` y `landing_consent_date` (la fecha la pone el servidor) |
+
+Los campos propios llevan el prefijo `landing_` para que un campo que Frappe CRM agregue en el futuro a `CRM Lead` no choque con ellos. Los crea la app `landing_crm` en cada `bench migrate` (`landing_crm/setup.py`).
+
+**¿Y el `Contact`?** No se crea al recibir la consulta. El `CRM Lead` guarda los datos de la persona en sus propios campos; el `Contact` y la *CRM Organization* los crea el CRM al convertir el `CRM Lead` en `CRM Deal`. Crearlos antes llenaría la libreta de contactos con cada visitante, el mismo problema que con el Customer.
+
+**Campos que `submit_lead` no completa:** `mobile_no` (el formulario no pide teléfono: la `reference` es el vínculo con la conversación de WhatsApp) y `website` (con el enriquecimiento automático del CRM activado, el CRM visita ese sitio, y el dato vendría de un desconocido). Los campos propios se agregan a *CRM Fields Layout* (panel lateral) para que se vean en la ficha *(confirmar en la interfaz)*.
 
 ### 7.4 Arquitectura: tres opciones
 
@@ -261,32 +273,42 @@ La arquitectura completa (componentes, zonas de confianza, DNS, secretos y qué 
 
 **Recomendación: A, detrás de Cloudflare.** Mantiene el modelo estático (y con él la CSP por hash), no deja secretos en el front y concentra las defensas en un lugar. Pasar a B solo si se necesita lógica que no deba vivir en Frappe.
 
-### 7.5 Contrato del endpoint (borrador)
+### 7.5 Contrato del endpoint (servidor implementado en `landing_crm.api`; el front todavía no lo usa)
 
-`POST https://crm.tudominio.com/api/method/<app>.api.submit_lead` — sin cookies.
+`POST https://crm.tudominio.com/api/method/landing_crm.api.submit_lead` — sin cookies.
 
 Entrada (JSON):
 
 | Campo | Tipo | Regla en el servidor |
 |---|---|---|
-| `idempotency_key` | UUID generado por el navegador | Si ya existe, devuelve el Lead previo en lugar de crear otro (evita duplicados por reintentos). No es una credencial |
-| `locale`, `form_version`, `origin`, `offer` | texto | Listas cerradas y largos acotados; `origin` solo `[a-z0-9_-]{1,24}` |
-| `services` | lista de ids | Solo ids del catálogo |
-| `answers` | mapa id → texto o lista de ids | Solo ids de preguntas del catálogo y de los servicios elegidos; largos como en el front; **el servidor no confía en nada** |
-| `contact` | nombre, empresa, ciudad, correo | Validación de formato; el nombre es obligatorio |
-| `consent` | booleano | Obligatorio y registrado con fecha |
-| `turnstile` | token | Se verifica en el servidor contra `https://challenges.cloudflare.com/turnstile/v0/siteverify` |
-| `website` | texto | Campo señuelo (honeypot): si viene con contenido, se descarta en silencio |
+| `idempotency_key` | UUID generado por el navegador | Si ya existe, devuelve la referencia del `CRM Lead` previo **sin volver a verificar Turnstile** (el token de un reintento ya se gastó). La base tiene un índice único: dos envíos simultáneos con la misma clave no crean dos. No es una credencial |
+| `locale` | `es`, `pt` o `en` | Lista cerrada |
+| `form_version` | entero | Tiene que ser igual a la versión del catálogo que tiene el servidor (hoy 3); otra se rechaza |
+| `origin` | texto | Solo `[a-z0-9_-]{1,24}`. Un origen conocido (`tarjeta`) va a su *CRM Lead Source*; cualquier otro, a *Landing* |
+| `offer` | texto | Hasta 140 caracteres. Es lo que el cliente vio: no se usa para calcular nada |
+| `services` | lista de ids | De 1 a 6, solo ids del catálogo |
+| `answers` | mapa id → texto o lista de ids | **Incluye los datos de contacto** (`p_nombre`, `p_org`, `p_ubicacion`, `p_correo`): no hay un objeto `contact` aparte. Una pregunta o una opción que el catálogo no conoce se descarta; un tipo equivocado o un texto más largo que en el front (120 y 600 caracteres) se rechaza. El nombre es obligatorio; un correo inválido **no** hace perder la consulta (queda en la nota). **El servidor no confía en nada** |
+| `consent` | booleano | Obligatorio; la fecha la pone el servidor |
+| `turnstile` | token | Hasta 2048 caracteres; se verifica contra `https://challenges.cloudflare.com/turnstile/v0/siteverify` (tope de 4 s). Sin `turnstile_secret` en el sitio, o si Cloudflare no responde, se rechaza |
+| `website` | texto | Campo señuelo (honeypot): con contenido, no se guarda nada y se responde como si todo hubiera ido bien, con la referencia `ML-AAMMDD-0000` (la serie real empieza en 0001) |
 
-Salida: `{ "reference": "ML-261120-0042" }` y nada más (sin ids internos ni datos del Lead).
+Salida: `{ "reference": "ML-261120-0042" }` y nada más (sin ids internos ni datos del `CRM Lead`).
 
-**Referencia.** La emite el servidor con una **serie de nombres** de Frappe (por ejemplo `ML-.YY.MM.DD.-.####`), que incrementa un contador de forma atómica: el serial es verdadero y no se repite. Ojo: el formato actual del front (`[A-HJ-NP-Z2-9]{4}`) excluye los dígitos 0 y 1, que un contador numérico sí usa; al integrar hay que **actualizar `REFERENCE_PATTERN`** (`src/model/message.ts`), la validación de `sanitize()` y el script de reanudación, y mantener una forma distinguible para las referencias locales de respaldo (por ejemplo, un prefijo propio).
+**Orden de las comprobaciones** (lo barato primero; Turnstile, que ocupa un worker mientras espera a la red, al final): límite por IP → tamaño del cuerpo (64 KB) → honeypot → forma del cuerpo → clave ya registrada → token de Turnstile → alta.
+
+**Límite por IP:** 10 envíos cada 10 minutos y 30 por día, además de la regla de Cloudflare. La IP sale de `CF-Connecting-IP`, que Cloudflare fija; `X-Forwarded-For` puede venir prellenado por el visitante y se ignora. Eso solo es cierto si el servidor acepta tráfico únicamente del túnel. Detrás de una red móvil con una IP compartida, 30 por día alcanza para el uso previsto, pero es un número a revisar con tráfico real.
+
+**Errores:** siempre el mismo texto genérico («No se pudo registrar la consulta.»): 417 para un cuerpo inválido, 403 para un token que no verifica, 429 para el límite. El motivo real queda solo en el registro del servidor (`sites/<sitio>/logs/landing_crm.log`).
+
+**Catálogo.** El servidor valida contra `landing_crm/data/catalog.json`, que se genera desde `src/model/catalog.ts` con `node scripts/export-catalog.mjs <salida>`. **Antes de desplegar un front con preguntas nuevas o un `SURVEY_VERSION` nuevo, hay que regenerarlo y hacer `bench migrate`/reiniciar en el servidor**: un front con otra versión es rechazado (el cliente igual llega a WhatsApp por el respaldo, pero la consulta no queda en el CRM).
+
+**Referencia.** La emite el servidor con una **serie de nombres** de Frappe (`ML-.YY.MM.DD.-.####`: un contador por día), que incrementa de forma atómica: el serial es verdadero y no se repite. Ojo: el formato actual del front (`[A-HJ-NP-Z2-9]{4}`) excluye los dígitos 0 y 1, que un contador numérico sí usa; al integrar hay que **actualizar `REFERENCE_PATTERN`** (`src/model/message.ts`), la validación de `sanitize()` y el script de reanudación, y mantener una forma distinguible para las referencias locales de respaldo (por ejemplo, un prefijo propio).
 
 **Respaldo.** Si la llamada falla o tarda más de unos 4 segundos, el front abre WhatsApp igual con una referencia local marcada como "sin registro". Mariano la ve y puede cargarla a mano. Así el CRM nunca es un punto único de falla para el cliente.
 
 ### 7.6 Refuerzo del lado de Frappe (lista de verificación)
 
-- [ ] Una **app propia** con un único método `@frappe.whitelist(allow_guest=True, methods=["POST"])`. El invitado **no** recibe permisos de creación sobre Lead: el método crea el registro con permisos elevados dentro del código, tras validar.
+- [ ] Una **app propia** con un único método `@frappe.whitelist(allow_guest=True, methods=["POST"])`. El invitado **no** recibe permisos de creación sobre `CRM Lead`: el método crea el registro con permisos elevados dentro del código, tras validar.
 - [ ] Límite de peticiones por IP en el método (`frappe.rate_limiter.rate_limit`; confirmar que existe y cómo se usa en la versión instalada) **y** una regla de límite en Cloudflare delante.
 - [ ] Verificación de Turnstile en el servidor; el secreto en `site_config.json`, nunca en el front.
 - [ ] CORS cerrado al origen del sitio (`allow_cors` en la configuración del sitio de Frappe), sin comodines.
@@ -295,7 +317,7 @@ Salida: `{ "reference": "ML-261120-0042" }` y nada más (sin ids internos ni dat
 - [ ] Cloudflare delante del servidor: WAF, ocultar la IP de origen, y el cortafuegos del servidor solo admite tráfico desde Cloudflare.
 - [ ] El escritorio de Frappe (`/app`) restringido (Cloudflare Access o lista de IP) y 2FA obligatoria para el personal.
 - [ ] Registro de accesos y alertas; actualizaciones de Frappe y del sistema al día; copias de seguridad cifradas y probadas; usuario del sistema sin privilegios.
-- [ ] Retención definida: cuánto tiempo se guardan los Leads sin convertir.
+- [ ] Retención definida: cuánto tiempo se guardan los `CRM Lead` sin convertir.
 
 **Efectos en este repositorio** al implementarlo: `CSP_CONNECT_SRC` con el origen de Frappe; si se usa Turnstile, hay que permitir `https://challenges.cloudflare.com` en `script-src`, `frame-src` y `connect-src` (y ese script no puede llevar SRI); nuevo flujo "enviando…" y respaldo en `Chat`/`useSurvey`; la frase de privacidad del pie debe cambiar.
 
