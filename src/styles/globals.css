@@ -38,6 +38,11 @@
 *, *::before, *::after { box-sizing: border-box; }
 html { scroll-behavior: smooth; scroll-padding-top: calc(var(--header-h) + 16px); -webkit-text-size-adjust: 100%; }
 body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); font: 400 16px/1.6 var(--font-body); -webkit-font-smoothing: antialiased; }
+/* Pie siempre abajo: con poco contenido (la pantalla final, una pregunta corta) el pie quedaba a mitad de pantalla y
+ * debajo se veía el fondo como una franja suelta. Columna flexible y el contenido principal ocupa el alto que sobra.
+ * Lo fijo (fondo, barra, botón de emergencia, pantalla de carga) no participa: está fuera del flujo. */
+body { display: flex; flex-direction: column; min-height: 100dvh; }
+body > main { flex: 1 0 auto; }
 h1, h2, h3, h4 { font-family: var(--font-head); font-weight: 600; line-height: 1.15; letter-spacing: 0.01em; margin: 0; }
 p { margin: 0; }
 a { color: var(--cyan-2); text-decoration: none; }
