@@ -97,6 +97,11 @@ export const IN_MS = 800;
 export const OUT_AT = 600;
 export const OUT_MS = 1000;
 export const PERIOD_MS = 1900;
+/**
+ * Lo que dura el primer ciclo cuando el logo ya estaba entero a la vista al arrancar (`entered`): empieza donde empieza el borrado (`OUT_AT`) y llega al
+ * final del periodo (borrado, y el respiro con todo apagado). Después el bucle sigue como siempre, con una aparición desde el logo oculto.
+ */
+export const ENTERED_MS = PERIOD_MS - OUT_AT;
 /** Potencia de la aceleración de los frentes: la posición crece con `(t / duración) ** EASE_POW`. */
 export const EASE_POW = 1.7;
 /** Ancho del borde del barrido: cuánto tarda un punto en pasar de oculto a visible (unidades del dibujo). Un borde con algo de caída, no un corte. */
@@ -133,9 +138,10 @@ export const SETTLE_T = IN_DONE + 450;
 /**
  * Cuánto se ve el logo (0–1) en el punto del recorrido a longitud de arco `arc`, a los `t` ms del periodo: ya apareció y todavía no se borró.
  * Con `once` solo hay aparición (no hay borrado): la última aparición del inicio y el logo entero con "reducir movimiento".
+ * Con `entered` el logo ya estaba entero antes de empezar: no hay aparición que esperar, solo el borrado (el banner de carga, que nace a la vista).
  */
-export function visibleAt(arc: number, t: number, once = false): number {
-  const shown = smooth(clamp01((frontIn(t) - arc) / EDGE));
+export function visibleAt(arc: number, t: number, once = false, entered = false): number {
+  const shown = entered ? 1 : smooth(clamp01((frontIn(t) - arc) / EDGE));
   if (once) return shown;
   const gone = smooth(clamp01((frontOut(t) - arc) / EDGE));
   return shown * (1 - gone);
@@ -154,8 +160,8 @@ export function profile(d: number): number {
  * borrado (el lado visible es el de delante: todavía no se borra). Como la cola de ésta cae hacia lo que aún no se ha borrado, hasta que el
  * frente de borrado no está a punto de entrar no hay luz. Con `once` solo la de aparición.
  */
-export function lightAt(arc: number, t: number, once = false): number {
-  const lit = profile(frontIn(t) - arc);
+export function lightAt(arc: number, t: number, once = false, entered = false): number {
+  const lit = entered ? 0 : profile(frontIn(t) - arc); // ya entero: no hay frente de aparición que lleve luz
   if (once) return Math.min(1, lit);
   const out = frontOut(t);
   const gate = smooth(clamp01((out - FRONT_START) / EDGE)); // el frente de borrado entra: la luz sube con él, no de golpe
@@ -169,14 +175,16 @@ export const stopCount = (seg: Segment) => Math.max(12, Math.ceil(seg.len / STOP
 export const stopOffset = (seg: Segment, k: number) => k / (stopCount(seg) - 1);
 export const stopArc = (seg: Segment, k: number) => seg.s0 + stopOffset(seg, k) * seg.len;
 /** Opacidad de la parada `k` del degradado de la máscara (lo que se ve del logo) y del de la luz, a los `t` ms del periodo. */
-export const visOpacity = (seg: Segment, k: number, t: number, once = false) => +visibleAt(stopArc(seg, k), t, once).toFixed(3);
-export const litOpacity = (seg: Segment, k: number, t: number, once = false) => +(PEAK[seg.tone] * lightAt(stopArc(seg, k), t, once)).toFixed(3);
+export const visOpacity = (seg: Segment, k: number, t: number, once = false, entered = false) => +visibleAt(stopArc(seg, k), t, once, entered).toFixed(3);
+export const litOpacity = (seg: Segment, k: number, t: number, once = false, entered = false) => +(PEAK[seg.tone] * lightAt(stopArc(seg, k), t, once, entered)).toFixed(3);
 
 // ---------------------------------------------------------------- el DOM
 
 export interface Sweep {
-  /** Escribe en el logo lo que se ve y la luz a los `t` ms del periodo (solo las paradas que cambian); con `once`, solo la aparición (sin borrado). */
-  write: (t: number, once?: boolean) => void;
+  /** Escribe en el logo lo que se ve y la luz a los `t` ms del periodo (solo las paradas que cambian); con `once`, solo la aparición (sin borrado); con `entered`, solo el borrado (el logo ya estaba entero). */
+  write: (t: number, once?: boolean, entered?: boolean) => void;
+  /** ¿Nació con el logo entero a la vista (todas las paradas de la máscara en 1)? Entonces el barrido empieza borrándolo, en vez de saltar a oculto y aparecer. */
+  startsVisible: boolean;
   /** Deja el logo entero a la vista y sin luz. */
   rest: () => void;
   /**
@@ -203,10 +211,11 @@ export function createSweep(root: Element): Sweep | null {
   }).filter((r) => r !== null);
   if (!rigs.length) return null;
 
-  const write = (t: number, once = false) => {
+  const startsVisible = rigs.filter((r) => r.kind === 'vis').every((r) => r.last.every((v) => v >= 1));
+  const write = (t: number, once = false, entered = false) => {
     for (const r of rigs) {
       r.stops.forEach((stop, k) => {
-        const v = r.kind === 'vis' ? visOpacity(r.seg, k, t, once) : litOpacity(r.seg, k, t, once);
+        const v = r.kind === 'vis' ? visOpacity(r.seg, k, t, once, entered) : litOpacity(r.seg, k, t, once, entered);
         if (r.last[k] === v) return;
         r.last[k] = v;
         stop.setAttribute('stop-opacity', String(v));
@@ -216,6 +225,7 @@ export function createSweep(root: Element): Sweep | null {
   const masked = Array.from(root.querySelectorAll('[mask]'), (el) => ({ el, value: el.getAttribute('mask')! }));
   return {
     write,
+    startsVisible,
     rest: () => write(SETTLE_T, true),
     release: () => { write(SETTLE_T, true); for (const m of masked) m.el.removeAttribute('mask'); },
     restore: () => { for (const m of masked) m.el.setAttribute('mask', m.value); write(SETTLE_T, true); },
@@ -225,6 +235,10 @@ export function createSweep(root: Element): Sweep | null {
 /**
  * Anima el barrido en bucle en el logo que hay dentro de `root` (el del banner de carga). En el respiro, con todo apagado, no escribe nada.
  * Con "reducir movimiento" no hay barrido: deja el logo entero a la vista, quieto. Devuelve la función que lo detiene.
+ *
+ * El banner viene en el HTML con el logo ya entero (así se ve desde el primer pintado, mientras el navegador aún descarga el JavaScript). Si es así
+ * (`startsVisible`), el primer ciclo solo lo borra (`ENTERED_MS`) y recién entonces empieza el bucle de siempre: el primer cuadro es idéntico a lo que ya
+ * se veía, sin salto a oculto. Con un logo que nace oculto el bucle empieza directamente.
  */
 export function startSweep(root: Element): () => void {
   const sweep = createSweep(root);
@@ -235,12 +249,15 @@ export function startSweep(root: Element): () => void {
   }
 
   const t0 = performance.now();
+  const lead = sweep.startsVisible ? ENTERED_MS : 0;
   let raf = 0;
   let alive = true;
   const frame = (now: number) => {
     raf = 0;
     if (!alive) return; // un cuadro ya pedido que llega después de detenerlo no debe escribir ni pedir otro
-    sweep.write((((now - t0) % PERIOD_MS) + PERIOD_MS) % PERIOD_MS);
+    const elapsed = now - t0;
+    if (lead > 0 && elapsed < lead) sweep.write(OUT_AT + elapsed, false, true);
+    else sweep.write((((elapsed - lead) % PERIOD_MS) + PERIOD_MS) % PERIOD_MS);
     raf = requestAnimationFrame(frame);
   };
   raf = requestAnimationFrame(frame);

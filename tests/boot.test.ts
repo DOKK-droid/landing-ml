@@ -5,6 +5,7 @@
  * Además dibuja el globo del inicio (el círculo de alrededor de ML) y deja que el logo aparezca y se borre con un barrido. */
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Boot, MIN_FIRST_MS } from '@/view/components/Boot';
 import { SEGMENTS } from '@/view/logoSweep';
@@ -51,6 +52,8 @@ beforeEach(() => {
   fontsResolve = null;
   readyEvents = 0;
   window.sessionStorage.clear();
+  // Lo que lleva cargando la página cuando arranca el JavaScript (el mínimo del banner se cuenta desde el inicio de la carga): por omisión, nada.
+  vi.spyOn(performance, 'now').mockReturnValue(0);
   html().dataset.boot = 'loading';
   Object.defineProperty(document, 'readyState', { get: () => readyState, configurable: true });
   Object.defineProperty(document, 'fonts', { value: { ready: Promise.resolve() }, configurable: true });
@@ -105,6 +108,53 @@ describe('banner de carga', () => {
     expect(window.sessionStorage.getItem('ml-booted')).toBe('1');
     await tick(560);
     expect(overlay()).toBeNull();
+  });
+
+  it('el mínimo se cuenta desde que empezó la carga de la página, no desde que arranca el JavaScript: lo que ya esperó el usuario cuenta', async () => {
+    // el JavaScript tardó 1,2 s en llegar y arrancar: solo falta lo que resta del mínimo, no el mínimo entero otra vez
+    vi.spyOn(performance, 'now').mockReturnValue(1200);
+    await mount();
+    await tick(MIN_FIRST_MS - 1200 - 30);
+    expect(html().dataset.boot, 'aún falta un poco').toBe('loading');
+    await tick(30 + 220 + 10);
+    expect(html().dataset.boot).toBe('ready');
+    expect(readyEvents).toBe(1);
+  });
+
+  it('si la carga ya pasó del mínimo, se retira en cuanto está todo listo: no suma otro mínimo después de la descarga', async () => {
+    vi.spyOn(performance, 'now').mockReturnValue(MIN_FIRST_MS + 3000);
+    await mount();
+    await tick(220 + 10); // solo la pausa para que la barra se vea llena
+    expect(html().dataset.boot).toBe('ready');
+    expect(overlay()!.classList.contains('is-leaving')).toBe(true);
+  });
+
+  it('con la página aún cargando no se retira aunque el mínimo ya haya pasado (espera todo lo demás)', async () => {
+    vi.spyOn(performance, 'now').mockReturnValue(MIN_FIRST_MS + 3000);
+    readyState = 'loading';
+    await mount();
+    await tick(2000);
+    expect(html().dataset.boot).toBe('loading');
+  });
+
+  it('en una visita posterior el mínimo también se descuenta de lo que ya tardó la carga', async () => {
+    window.sessionStorage.setItem('ml-booted', '1');
+    vi.spyOn(performance, 'now').mockReturnValue(400);
+    await mount();
+    await tick(220 + 10);
+    expect(html().dataset.boot).toBe('ready');
+  });
+
+  it('desde el HTML trae el logo ENTERO a la vista (no una marca vacía hasta que llegue el JavaScript) y el texto de carga', () => {
+    const markup = renderToStaticMarkup(createElement(Boot, { locale: 'es' }));
+    const doc = new DOMParser().parseFromString(markup, 'text/html');
+    const vis = Array.from(doc.querySelectorAll('linearGradient[data-sweep]')).filter((g) => g.getAttribute('data-sweep')!.startsWith('vis:'));
+    expect(vis).toHaveLength(SEGMENTS.length);
+    for (const g of vis) for (const stop of Array.from(g.querySelectorAll('stop'))) expect(stop.getAttribute('stop-opacity'), g.getAttribute('data-sweep')!).toBe('1');
+    for (const g of Array.from(doc.querySelectorAll('linearGradient[data-sweep]')).filter((x) => x.getAttribute('data-sweep')!.startsWith('lit:'))) {
+      for (const stop of Array.from(g.querySelectorAll('stop'))) expect(stop.getAttribute('stop-opacity')).toBe('0');
+    }
+    expect(doc.querySelector('.boot')!.textContent).toContain('Cargando');
   });
 
   it('espera a que termine la carga de la página (evento load)', async () => {

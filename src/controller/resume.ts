@@ -10,6 +10,7 @@
  * `data-resume`; el CSS oculta la landing mientras tanto y useSurvey quita la marca al restaurar el estado.
  * ============================================================ */
 import { REFERENCE_PATTERN } from '@/model/message';
+import { LOCALES } from '@/model/types';
 
 /** v2: cambió el orden de los pasos (actividad → servicios → expectativas → contacto); un `step` guardado en v1 apuntaría a otra sección. */
 export const STORAGE_KEY = 'ml-relevamiento-v3';
@@ -20,9 +21,14 @@ export const RESUME_FAILSAFE_MS = 5000;
 
 const attr = JSON.stringify(RESUME_ATTR);
 
+/** Dirección del inicio de cada idioma ("/es/", y también "/es" o "/es/index.html"). El relevamiento solo existe ahí: el script está en el
+ *  <head> de todo `[locale]`, y en otra página (las tarifas) ocultaría el contenido hasta que venza la red de seguridad, porque nada lo restaura. */
+const HOME_PATH = new RegExp(`^/(${LOCALES.join('|')})(/(index\\.html)?)?$`);
+
 /** Script para <head>. Sin dependencias: se ejecuta tal cual en el navegador y no debe lanzar errores. */
 export const resumeScript =
   `(function(){try{` +
+  `if(!/${HOME_PATH.source}/.test(location.pathname))return;` +
   `var s=JSON.parse(sessionStorage.getItem(${JSON.stringify(STORAGE_KEY)})||"null");` +
   // La referencia válida es parte de la condición porque sanitize() manda a la landing un estado sin ella.
   `if(s&&/^(survey|review|sent)$/.test(s.phase)&&Array.isArray(s.selected)&&s.selected.length` +

@@ -6,9 +6,11 @@ import type { Locale } from './types';
 
 export interface Dictionary {
   meta: { title: string; description: string };
+  /** Título y descripción de la página de tarifas (`/es/tarifas/`): lo que ven buscadores y vistas previas al compartirla. Sin cifras: salen de `site.consulta`. */
+  ratesMeta: { title: string; description: string };
   role: string;
   tagline: string;
-  nav: { services: string; approach: string; contact: string; language: string };
+  nav: { services: string; rates: string; approach: string; contact: string; language: string };
   hero: { eyebrow: string; title: string; lead: string; cta: string; secondary: string };
   concept: { title: string; lead: string; center: string; diagram: string };
   boot: { label: string };
@@ -22,6 +24,8 @@ export interface Dictionary {
     tiersTitle: (minutes: number) => string; tierBelow: (to: string) => string;
     tierBetween: (from: string, to: string) => string; tierFrom: (from: string) => string;
     examples: string; was: string; support: string; supportLink: string; cta: string; hero: string;
+    /** La ventaja a la vista: rótulo del ahorro de un ejemplo, por qué una reunión corta no lo tiene y cuánto baja la hora entre el primer y el último tramo. */
+    saving: string; noOffer: (from: string) => string; perk: (from: string, to: string, percent: number) => string;
   };
   preview: {
     title: string; hint: string; keyData: (done: number, total: number) => string; keyDone: string;
@@ -55,21 +59,25 @@ export interface Dictionary {
 const es: Dictionary = {
   meta: {
     title: 'Mariano Lemos Barbaro — Arquitecto & Consultor Senior IT',
-    description: 'Consultoría, desarrollo de software, gestión ERP/CRM, infraestructura, inteligencia artificial y soporte 24/7. Cuente su situación y coordinamos una videollamada.',
+    description: 'Consultoría, desarrollo de software, gestión ERP/CRM, infraestructura, inteligencia artificial y soporte 24/7. Describa su situación y coordinaremos una videollamada.',
+  },
+  ratesMeta: {
+    title: 'Tarifas del relevamiento técnico — Mariano Lemos Barbaro',
+    description: 'Cuanto más larga la reunión, menos cuesta la hora. Tarifa por tramos de duración, ejemplos de costo total y cómo solicitar la consulta.',
   },
   role: 'Arquitecto & Consultor Senior IT',
   tagline: 'Innovación · Tecnología · Soluciones reales',
-  nav: { services: 'Servicios', approach: 'Enfoque', contact: 'Contacto', language: 'Idioma' },
+  nav: { services: 'Servicios', rates: 'Tarifas', approach: 'Enfoque', contact: 'Contacto', language: 'Idioma' },
   hero: {
-    eyebrow: 'Diagnósticos · Diseños · Implementación',
+    eyebrow: 'Diagnóstico · Diseño · Implementación',
     title: 'Soluciones IT que empiezan por entender su negocio',
-    lead: 'Consultoría, software, gestión, infraestructura, inteligencia artificial y soporte 24/7. Cuénteme qué necesita y lo vemos por videollamada.',
+    lead: 'Consultoría, software, gestión, infraestructura, inteligencia artificial y soporte 24/7. Describa su necesidad y la analizamos en una videollamada.',
     cta: 'Iniciar relevamiento',
     secondary: 'Ver servicios',
   },
   concept: {
     title: 'Tecnología pensada desde su negocio',
-    lead: 'Primero entiendo cómo trabaja su organización; después diseño la solución. Su negocio va al centro y cada servicio se conecta a él según lo que necesite.',
+    lead: 'Primero se analiza cómo trabaja su organización y luego se diseña la solución. Su negocio ocupa el centro y cada servicio se conecta a él según sus necesidades.',
     center: 'Su negocio',
     diagram: 'Diagrama: su negocio en el centro, conectado a seis servicios.',
   },
@@ -81,27 +89,30 @@ const es: Dictionary = {
   consulta: {
     badge: 'Oferta',
     title: 'Relevamiento técnico, con tarifa por tramos',
-    lead: 'Toda asesoría empieza con un relevamiento técnico por videollamada: usted cuenta su situación y definimos juntos los próximos pasos. Vale para software, sistemas, gestión, infraestructura o inteligencia artificial.',
-    billing: (m, from) => `Cada bloque de ${m} minutos se cobra al precio del tramo en que empieza y un bloque incompleto cuenta como uno entero. Con menos de ${from} rige la tarifa normal.`,
+    lead: 'Toda asesoría comienza con un relevamiento técnico por videollamada: usted expone su situación y se definen en conjunto los próximos pasos. Aplica a software, sistemas, gestión, infraestructura e inteligencia artificial.',
+    billing: (m, from) => `La duración total define el tramo y su tarifa rige para toda la reunión, en bloques de ${m} minutos (un bloque incompleto cuenta como uno entero). Con menos de ${from} rige la tarifa normal.`,
     perHour: 'la hora de relevamiento técnico',
     hourShort: 'la hora',
     equals: (f) => `Equivale a ${f.block} cada ${f.minutes} min (antes ${f.blockOriginal}).`,
     off: (p) => `−${p} %`,
-    srPrice: (f) => `Oferta: ${f.hour} la hora de relevamiento técnico, es decir ${f.block} cada ${f.minutes} minutos, desde ${f.from} de reunión. Precio normal: ${f.hourOriginal} la hora (${f.blockOriginal} cada ${f.minutes} minutos). El total se calcula por tramos.`,
+    srPrice: (f) => `Oferta: ${f.hour} la hora de relevamiento técnico, es decir ${f.block} cada ${f.minutes} minutos, desde ${f.from} de reunión. Precio normal: ${f.hourOriginal} la hora (${f.blockOriginal} cada ${f.minutes} minutos). La hora baja cuanto más larga es la reunión.`,
     tiersTitle: (m) => `Tarifa por tramos · cada ${m} min y por hora`,
     tierBelow: (to) => `Menos de ${to} · tarifa normal`,
     tierBetween: (from, to) => `De ${from} a ${to}`,
-    tierFrom: (from) => `Más de ${from}`,
+    tierFrom: (from) => `Desde ${from}`,
     examples: 'Costo total según la duración de la reunión',
     was: 'antes',
-    support: 'Para emergencias, reparación o mantenimiento de equipos, en remoto o presencial, está Soporte 24/7.',
+    support: 'Para emergencias, reparación o mantenimiento de equipos, en modalidad remota o presencial, se dispone del servicio de Soporte 24/7.',
     supportLink: 'Ver Soporte 24/7',
-    cta: 'Pedir mi consulta',
+    cta: 'Solicitar consulta',
     hero: 'Relevamiento técnico',
+    saving: 'Ahorro',
+    noOffer: (from) => `Tarifa normal · la oferta empieza en ${from}`,
+    perk: (from, to, p) => `Cuanto más larga la reunión, menos cuesta la hora: de ${from} a ${to}, hasta ${p} % menos que la tarifa normal.`,
   },
   preview: {
     title: 'Vista previa del mensaje',
-    hint: 'Así va quedando lo que recibirá Mariano. Lo revisa y lo puede editar antes de enviarlo.',
+    hint: 'Así va quedando el mensaje que recibirá Mariano. Puede revisarlo y editarlo antes de enviarlo.',
     keyData: (d, t) => `Datos clave: ${d} de ${t}`,
     keyDone: 'Datos clave completos',
     pending: 'pendiente',
@@ -110,14 +121,14 @@ const es: Dictionary = {
   how: {
     title: 'Cómo funciona',
     steps: [
-      { t: 'Elija servicios', d: 'Uno o varios.' },
-      { t: 'Responda', d: 'Preguntas simples, unos 5 minutos.' },
+      { t: 'Seleccione servicios', d: 'Uno o varios.' },
+      { t: 'Responda', d: 'Preguntas breves, unos 5 minutos.' },
       { t: 'Envíe por WhatsApp', d: 'Coordinamos una videollamada.' },
     ],
   },
   services: {
     title: 'Servicios',
-    subtitle: 'Elija uno o varios. Si no está seguro, el más cercano: lo definimos juntos.',
+    subtitle: 'Seleccione uno o varios. Ante la duda, el más cercano: el alcance se define en conjunto.',
     detail: 'Ver detalle',
     add: 'Agregar',
     remove: 'Quitar',
@@ -132,8 +143,8 @@ const es: Dictionary = {
     clear: 'Limpiar',
   },
   approach: {
-    title: 'En cada diagnóstico busco',
-    items: ['Dónde se pierde tiempo o dinero', 'Qué ventajas aprovechar', 'Si la inversión es viable', 'Cómo cuidar sus activos'],
+    title: 'En cada diagnóstico se analiza',
+    items: ['Dónde se pierde tiempo o dinero', 'Qué ventajas aprovechar', 'Si la inversión es viable', 'Cómo proteger sus activos'],
   },
   survey: {
     step: (n, total) => `Paso ${n} de ${total}`,
@@ -161,7 +172,7 @@ const es: Dictionary = {
     copy: 'Copiar mensaje',
     copied: 'Copiado',
     edit: 'Modificar respuestas',
-    sent: 'Gracias. Le respondo a la brevedad para coordinar la videollamada.',
+    sent: 'Gracias. Nos comunicaremos a la brevedad para coordinar la videollamada.',
     restart: 'Nuevo relevamiento',
     tooLong: 'El mensaje es muy extenso; considere acortar los textos libres.',
   },
@@ -172,7 +183,7 @@ const es: Dictionary = {
     ref: 'Ref.',
     services: 'Servicios de interés',
     consult: 'Consulta',
-    consultValue: (f) => `${f.hour} la hora (${f.block} cada ${f.minutes} min), oferta desde ${f.from}; precio normal ${f.hourOriginal} la hora; total por tramos`,
+    consultValue: (f) => `${f.hour} la hora (${f.block} cada ${f.minutes} min), oferta desde ${f.from}; precio normal ${f.hourOriginal} la hora; tarifa por tramos de duración`,
     origin: 'origen',
     footer: 'Enviado desde',
     closing: 'Quedo a la espera para coordinar la videollamada.',
@@ -189,21 +200,25 @@ const es: Dictionary = {
 const pt: Dictionary = {
   meta: {
     title: 'Mariano Lemos Barbaro — Arquiteto & Consultor Sênior de TI',
-    description: 'Consultoria, desenvolvimento de software, gestão ERP/CRM, infraestrutura, inteligência artificial e suporte 24/7. Conte sua situação e agendamos uma videochamada.',
+    description: 'Consultoria, desenvolvimento de software, gestão ERP/CRM, infraestrutura, inteligência artificial e suporte 24/7. Descreva sua situação e agendaremos uma videochamada.',
+  },
+  ratesMeta: {
+    title: 'Tarifas do levantamento técnico — Mariano Lemos Barbaro',
+    description: 'Quanto mais longa a reunião, menos custa a hora. Tarifa por faixas de duração, exemplos de custo total e como solicitar a consulta.',
   },
   role: 'Arquiteto & Consultor Sênior de TI',
   tagline: 'Inovação · Tecnologia · Soluções reais',
-  nav: { services: 'Serviços', approach: 'Abordagem', contact: 'Contato', language: 'Idioma' },
+  nav: { services: 'Serviços', rates: 'Tarifas', approach: 'Abordagem', contact: 'Contato', language: 'Idioma' },
   hero: {
-    eyebrow: 'Diagnósticos · Projetos · Implementação',
+    eyebrow: 'Diagnóstico · Projeto · Implementação',
     title: 'Soluções de TI que começam por entender o seu negócio',
-    lead: 'Consultoria, software, gestão, infraestrutura, inteligência artificial e suporte 24/7. Conte o que precisa e conversamos por videochamada.',
+    lead: 'Consultoria, software, gestão, infraestrutura, inteligência artificial e suporte 24/7. Descreva sua necessidade e a analisamos em uma videochamada.',
     cta: 'Iniciar levantamento',
     secondary: 'Ver serviços',
   },
   concept: {
     title: 'Tecnologia pensada a partir do seu negócio',
-    lead: 'Primeiro entendo como sua organização trabalha; depois projeto a solução. Seu negócio fica no centro e cada serviço se conecta a ele conforme a necessidade.',
+    lead: 'Primeiro se analisa como sua organização trabalha e, depois, se projeta a solução. Seu negócio fica no centro e cada serviço se conecta a ele conforme a necessidade.',
     center: 'Seu negócio',
     diagram: 'Diagrama: seu negócio no centro, conectado a seis serviços.',
   },
@@ -215,27 +230,30 @@ const pt: Dictionary = {
   consulta: {
     badge: 'Oferta',
     title: 'Levantamento técnico, com tarifa por faixas',
-    lead: 'Toda assessoria começa com um levantamento técnico por videochamada: você conta sua situação e definimos juntos os próximos passos. Vale para software, sistemas, gestão, infraestrutura ou inteligência artificial.',
-    billing: (m, from) => `Cada bloco de ${m} minutos é cobrado pelo preço da faixa em que começa e um bloco incompleto conta como inteiro. Com menos de ${from} vale a tarifa normal.`,
+    lead: 'Toda assessoria começa com um levantamento técnico por videochamada: você expõe sua situação e os próximos passos são definidos em conjunto. Aplica-se a software, sistemas, gestão, infraestrutura e inteligência artificial.',
+    billing: (m, from) => `A duração total define a faixa e sua tarifa vale para toda a reunião, em blocos de ${m} minutos (um bloco incompleto conta como inteiro). Com menos de ${from} vale a tarifa normal.`,
     perHour: 'a hora de levantamento técnico',
     hourShort: 'a hora',
     equals: (f) => `Equivale a ${f.block} a cada ${f.minutes} min (antes ${f.blockOriginal}).`,
     off: (p) => `−${p} %`,
-    srPrice: (f) => `Oferta: ${f.hour} a hora de levantamento técnico, ou seja, ${f.block} a cada ${f.minutes} minutos, a partir de ${f.from} de reunião. Preço normal: ${f.hourOriginal} a hora (${f.blockOriginal} a cada ${f.minutes} minutos). O total é calculado por faixas.`,
+    srPrice: (f) => `Oferta: ${f.hour} a hora de levantamento técnico, ou seja, ${f.block} a cada ${f.minutes} minutos, a partir de ${f.from} de reunião. Preço normal: ${f.hourOriginal} a hora (${f.blockOriginal} a cada ${f.minutes} minutos). A hora fica mais barata quanto mais longa é a reunião.`,
     tiersTitle: (m) => `Tarifa por faixas · a cada ${m} min e por hora`,
     tierBelow: (to) => `Menos de ${to} · tarifa normal`,
     tierBetween: (from, to) => `De ${from} a ${to}`,
-    tierFrom: (from) => `Mais de ${from}`,
+    tierFrom: (from) => `A partir de ${from}`,
     examples: 'Custo total conforme a duração da reunião',
     was: 'antes',
-    support: 'Para emergências, conserto ou manutenção de equipamentos, remoto ou presencial, há o Suporte 24/7.',
+    support: 'Para emergências, conserto ou manutenção de equipamentos, em modalidade remota ou presencial, está disponível o serviço de Suporte 24/7.',
     supportLink: 'Ver Suporte 24/7',
-    cta: 'Pedir minha consulta',
+    cta: 'Solicitar consulta',
     hero: 'Levantamento técnico',
+    saving: 'Economia',
+    noOffer: (from) => `Tarifa normal · a oferta começa em ${from}`,
+    perk: (from, to, p) => `Quanto mais longa a reunião, menos custa a hora: de ${from} a ${to}, até ${p} % menos que a tarifa normal.`,
   },
   preview: {
     title: 'Prévia da mensagem',
-    hint: 'É assim que a mensagem que o Mariano receberá vai ficando. Você revisa e pode editar antes de enviar.',
+    hint: 'É assim que a mensagem que o Mariano receberá vai ficando. Você pode revisá-la e editá-la antes de enviar.',
     keyData: (d, t) => `Dados-chave: ${d} de ${t}`,
     keyDone: 'Dados-chave completos',
     pending: 'pendente',
@@ -244,14 +262,14 @@ const pt: Dictionary = {
   how: {
     title: 'Como funciona',
     steps: [
-      { t: 'Escolha serviços', d: 'Um ou vários.' },
+      { t: 'Selecione serviços', d: 'Um ou vários.' },
       { t: 'Responda', d: 'Perguntas simples, cerca de 5 minutos.' },
       { t: 'Envie pelo WhatsApp', d: 'Agendamos uma videochamada.' },
     ],
   },
   services: {
     title: 'Serviços',
-    subtitle: 'Escolha um ou vários. Se não tiver certeza, o mais próximo: definimos juntos.',
+    subtitle: 'Selecione um ou vários. Em caso de dúvida, o mais próximo: o escopo é definido em conjunto.',
     detail: 'Ver detalhes',
     add: 'Adicionar',
     remove: 'Remover',
@@ -266,7 +284,7 @@ const pt: Dictionary = {
     clear: 'Limpar',
   },
   approach: {
-    title: 'Em cada diagnóstico procuro',
+    title: 'Em cada diagnóstico se analisa',
     items: ['Onde se perde tempo ou dinheiro', 'Que vantagens aproveitar', 'Se o investimento é viável', 'Como proteger seus ativos'],
   },
   survey: {
@@ -295,7 +313,7 @@ const pt: Dictionary = {
     copy: 'Copiar mensagem',
     copied: 'Copiado',
     edit: 'Alterar respostas',
-    sent: 'Obrigado. Respondo em breve para agendar a videochamada.',
+    sent: 'Obrigado. Entraremos em contato em breve para agendar a videochamada.',
     restart: 'Novo levantamento',
     tooLong: 'A mensagem está muito longa; considere encurtar os textos livres.',
   },
@@ -306,7 +324,7 @@ const pt: Dictionary = {
     ref: 'Ref.',
     services: 'Serviços de interesse',
     consult: 'Consulta',
-    consultValue: (f) => `${f.hour} a hora (${f.block} a cada ${f.minutes} min), oferta a partir de ${f.from}; preço normal ${f.hourOriginal} a hora; total por faixas`,
+    consultValue: (f) => `${f.hour} a hora (${f.block} a cada ${f.minutes} min), oferta a partir de ${f.from}; preço normal ${f.hourOriginal} a hora; tarifa por faixas de duração`,
     origin: 'origem',
     footer: 'Enviado de',
     closing: 'Aguardo para agendarmos a videochamada.',
@@ -323,21 +341,25 @@ const pt: Dictionary = {
 const en: Dictionary = {
   meta: {
     title: 'Mariano Lemos Barbaro — Senior IT Architect & Consultant',
-    description: 'Consulting, software development, ERP/CRM management, infrastructure, artificial intelligence and 24/7 support. Tell me about your situation and we will schedule a video call.',
+    description: 'Consulting, software development, ERP/CRM management, infrastructure, artificial intelligence and 24/7 support. Describe your situation and we will schedule a video call.',
+  },
+  ratesMeta: {
+    title: 'Technical assessment rates — Mariano Lemos Barbaro',
+    description: 'The longer the meeting, the less each hour costs. Tiered rates by duration, total cost examples and how to request a consultation.',
   },
   role: 'Senior IT Architect & Consultant',
   tagline: 'Innovation · Technology · Real solutions',
-  nav: { services: 'Services', approach: 'Approach', contact: 'Contact', language: 'Language' },
+  nav: { services: 'Services', rates: 'Rates', approach: 'Approach', contact: 'Contact', language: 'Language' },
   hero: {
     eyebrow: 'Diagnosis · Design · Implementation',
     title: 'IT solutions that start by understanding your business',
-    lead: 'Consulting, software, management, infrastructure, artificial intelligence and 24/7 support. Tell me what you need and we will talk it through on a video call.',
-    cta: 'Start the assessment',
-    secondary: 'See services',
+    lead: 'Consulting, software, management, infrastructure, artificial intelligence and 24/7 support. Describe your need and we will review it on a video call.',
+    cta: 'Start assessment',
+    secondary: 'View services',
   },
   concept: {
     title: 'Technology designed around your business',
-    lead: 'First I understand how your organization works; then I design the solution. Your business sits at the center and each service connects to it as needed.',
+    lead: 'Every engagement begins by understanding how your organization works; the solution is designed afterwards. Your business sits at the center and each service connects to it as needed.',
     center: 'Your business',
     diagram: 'Diagram: your business at the center, connected to six services.',
   },
@@ -349,23 +371,26 @@ const en: Dictionary = {
   consulta: {
     badge: 'Offer',
     title: 'Technical assessment, with tiered pricing',
-    lead: 'Every advisory engagement starts with a technical assessment by video call: you describe your situation and we define the next steps together. It covers software, systems, management, infrastructure or artificial intelligence.',
-    billing: (m, from) => `Each ${m}-minute block is charged at the price of the tier where it starts, and a partial block counts as a full one. Under ${from} the regular rate applies.`,
+    lead: 'Every advisory engagement starts with a technical assessment by video call: you describe your situation and the next steps are defined jointly. It applies to software, systems, management, infrastructure and artificial intelligence.',
+    billing: (m, from) => `The total length sets the tier, and its rate applies to the whole meeting, in ${m}-minute blocks (a partial block counts as a full one). Under ${from} the regular rate applies.`,
     perHour: 'per hour of technical assessment',
     hourShort: 'per hour',
     equals: (f) => `Equivalent to ${f.block} per ${f.minutes} min (was ${f.blockOriginal}).`,
     off: (p) => `−${p}%`,
-    srPrice: (f) => `Offer: ${f.hour} per hour of technical assessment, i.e. ${f.block} per ${f.minutes} minutes, from ${f.from} of meeting. Regular price: ${f.hourOriginal} per hour (${f.blockOriginal} per ${f.minutes} minutes). The total is calculated by tier.`,
+    srPrice: (f) => `Offer: ${f.hour} per hour of technical assessment, i.e. ${f.block} per ${f.minutes} minutes, from ${f.from} of meeting. Regular price: ${f.hourOriginal} per hour (${f.blockOriginal} per ${f.minutes} minutes). The hourly price drops the longer the meeting is.`,
     tiersTitle: (m) => `Tiered pricing · per ${m} min and per hour`,
     tierBelow: (to) => `Under ${to} · regular rate`,
     tierBetween: (from, to) => `${from} to ${to}`,
-    tierFrom: (from) => `Over ${from}`,
+    tierFrom: (from) => `From ${from}`,
     examples: 'Total cost by meeting length',
     was: 'was',
-    support: 'For emergencies, repair or maintenance of equipment, remote or on-site, there is 24/7 Support.',
-    supportLink: 'See 24/7 Support',
-    cta: 'Request my consultation',
+    support: 'For emergencies, repair or maintenance of equipment, remote or on-site, the 24/7 Support service is available.',
+    supportLink: 'View 24/7 Support',
+    cta: 'Request a consultation',
     hero: 'Technical assessment',
+    saving: 'Saving',
+    noOffer: (from) => `Regular rate · the offer starts at ${from}`,
+    perk: (from, to, p) => `The longer the meeting, the lower the hourly price: from ${from} down to ${to}, up to ${p}% below the regular rate.`,
   },
   preview: {
     title: 'Message preview',
@@ -378,14 +403,14 @@ const en: Dictionary = {
   how: {
     title: 'How it works',
     steps: [
-      { t: 'Choose services', d: 'One or several.' },
+      { t: 'Select services', d: 'One or several.' },
       { t: 'Answer', d: 'Simple questions, about 5 minutes.' },
       { t: 'Send via WhatsApp', d: 'We schedule a video call.' },
     ],
   },
   services: {
     title: 'Services',
-    subtitle: "Pick one or several. Not sure? Pick the closest; we'll define it together.",
+    subtitle: 'Select one or several. If in doubt, the closest one: the scope is defined jointly.',
     detail: 'See details',
     add: 'Add',
     remove: 'Remove',
@@ -400,7 +425,7 @@ const en: Dictionary = {
     clear: 'Clear',
   },
   approach: {
-    title: 'In every diagnosis I look for',
+    title: 'Every diagnosis examines',
     items: ['Where time or money is lost', 'Which strengths to build on', 'Whether the investment is viable', 'How to protect your assets'],
   },
   survey: {
@@ -429,7 +454,7 @@ const en: Dictionary = {
     copy: 'Copy message',
     copied: 'Copied',
     edit: 'Edit answers',
-    sent: 'Thank you. I will get back to you shortly to schedule the video call.',
+    sent: 'Thank you. We will get back to you shortly to schedule the video call.',
     restart: 'New assessment',
     tooLong: 'The message is very long; consider shortening the free-text answers.',
   },
@@ -440,7 +465,7 @@ const en: Dictionary = {
     ref: 'Ref.',
     services: 'Services of interest',
     consult: 'Consultation',
-    consultValue: (f) => `${f.hour} per hour (${f.block} per ${f.minutes} min), offer from ${f.from}; regular price ${f.hourOriginal} per hour; total by tier`,
+    consultValue: (f) => `${f.hour} per hour (${f.block} per ${f.minutes} min), offer from ${f.from}; regular price ${f.hourOriginal} per hour; tiered by meeting length`,
     origin: 'source',
     footer: 'Sent from',
     closing: 'Looking forward to scheduling the video call.',

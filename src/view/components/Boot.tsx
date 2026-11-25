@@ -1,7 +1,9 @@
 'use client';
-/* Banner de carga. Va en el HTML que sirve el sitio (se ve antes de que cargue el JavaScript) y se retira cuando está
- * todo listo: la hidratación de React, las tipografías y la carga de la página (estilos e imágenes), con un mínimo para
- * que no parpadee en cargas rápidas y un máximo por si algo se cuelga.
+/* Banner de carga. Va en el HTML que sirve el sitio y se ve desde el primer pintado, antes de que llegue el JavaScript: con el logo ya
+ * entero (la "respiración" y los destellos de la estela son CSS), no una marca vacía a la espera de que React hidrate. Se retira cuando
+ * está todo listo: la hidratación de React, las tipografías y la carga de la página (estilos e imágenes), con un mínimo para
+ * que no parpadee en cargas rápidas y un máximo por si algo se cuelga. El mínimo se cuenta desde que empezó la carga de la página
+ * (`performance.now()`), no desde la hidratación: si no, cada visita esperaría la descarga Y ADEMÁS el mínimo entero.
  *
  * Al retirarse marca <html data-boot="ready"> —lo que arranca la entrada del inicio— y avisa con `ml:ready`, que es la
  * señal para que el logo pase de 2D a 3D. Mientras tanto la entrada del inicio espera detrás del banner para que no
@@ -20,8 +22,9 @@ import { prefersReducedMotion } from '../motion';
 import { Logo } from './Logo';
 
 /**
- * Tiempo mínimo en la primera carga de la sesión: el justo para ver UN ciclo entero del logo (aparece y se borra: `OUT_DONE` en
- * view/logoSweep.ts); después, con todo en caché, casi no hace falta. Si la carga tarda más, el ciclo se repite.
+ * Tiempo mínimo del banner en la primera carga de la sesión, contado desde que empieza la carga de la página: el justo para ver UN ciclo del
+ * logo (se borra y vuelve a aparecer: `OUT_DONE` en view/logoSweep.ts); después, con todo en caché, casi no hace falta. Si la carga tarda más,
+ * el banner se retira en cuanto está todo listo, sin esperar nada más, y el ciclo se repite mientras tanto.
  */
 export const MIN_FIRST_MS = Math.ceil((OUT_DONE + 60) / 100) * 100;
 const MIN_RETURN_MS = 120;
@@ -73,7 +76,8 @@ export function Boot({ locale }: { locale: Locale }) {
     const tasks: Promise<unknown>[] = [
       document.fonts ? document.fonts.ready : Promise.resolve(),
       onLoad,
-      new Promise<void>((resolve) => { timers.push(window.setTimeout(resolve, seen ? MIN_RETURN_MS : MIN_FIRST_MS)); }),
+      // Lo que falta del mínimo: ya pasó el tiempo que tardó en llegar y arrancar el JavaScript.
+      new Promise<void>((resolve) => { timers.push(window.setTimeout(resolve, Math.max(0, (seen ? MIN_RETURN_MS : MIN_FIRST_MS) - performance.now()))); }),
     ];
 
     // La barra avanza con lo que se va completando: hidratación (esto mismo), tipografías, carga y tiempo mínimo.
@@ -112,7 +116,7 @@ export function Boot({ locale }: { locale: Locale }) {
         <div className="boot__mark" ref={markRef} aria-hidden="true">
           <canvas ref={globeRef} className="logo3d__cv" />
           <div className="boot__ml">
-            <Logo className="boot__logo" flow sweep="hidden" />
+            <Logo className="boot__logo" flow sweep="visible" />
           </div>
         </div>
         <p className="boot__label">{d.label}</p>

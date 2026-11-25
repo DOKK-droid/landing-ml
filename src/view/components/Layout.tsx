@@ -1,41 +1,65 @@
 /* Cabecera, selector de idioma, pie y botón de emergencia. */
+import Link from 'next/link';
 import { site } from '@/config/site';
 import { DICTIONARIES, LOCALE_NAMES } from '@/model/i18n';
 import { buildWhatsAppUrl } from '@/model/message';
+import { pagePath, type Page } from '@/model/seo';
 import { LOCALES, type Locale } from '@/model/types';
 import { LinkedInIcon, MailIcon, WhatsAppIcon } from './Icons';
 import { Logo } from './Logo';
 
-export function SiteHeader({ locale, onHome, compact }: { locale: Locale; onHome: () => void; compact?: boolean }) {
+/**
+ * Cabecera. `page` es la página en la que está: en el inicio (`home`) el menú salta a las secciones y el logo vuelve al
+ * principio del relevamiento (`onHome`); en las tarifas (`rates`) lleva de vuelta al inicio, así que usa direcciones completas.
+ *
+ * Entre el inicio y las tarifas se navega con `<Link>` (sin recargar: la página, el banner de carga y los scripts ya están).
+ * El selector de idioma, en cambio, es un `<a>` normal a propósito: cada idioma es otra página con su propio <html> y su propio
+ * script de reanudación, y cambiar de idioma tiene que cargarla entera.
+ */
+export function SiteHeader({ locale, onHome, compact, page = 'home' }: { locale: Locale; onHome?: () => void; compact?: boolean; page?: Page }) {
   const d = DICTIONARIES[locale];
+  const home = pagePath('home', locale);
+  // En el inicio alcanza con el ancla (es la misma página); desde otra hay que volver al inicio y de ahí bajar a la sección.
+  const section = (id: string, label: string) =>
+    page === 'home' ? <a href={`#${id}`}>{label}</a> : <Link href={`${home}#${id}`}>{label}</Link>;
+  const brand = (
+    <>
+      <Logo className="brand__mark" />
+      <span className="brand__text">
+        <strong>Mariano Lemos Barbaro</strong>
+        <small>{d.role}</small>
+      </span>
+    </>
+  );
   return (
     <header className="header">
       <div className="container header__inner">
-        <a className="brand" href={`/${locale}/`} onClick={(e) => { e.preventDefault(); onHome(); }}>
-          <Logo className="brand__mark" />
-          <span className="brand__text">
-            <strong>Mariano Lemos Barbaro</strong>
-            <small>{d.role}</small>
-          </span>
-        </a>
+        {onHome ? (
+          // En el inicio no se navega: el logo vuelve al principio del relevamiento.
+          <a className="brand" href={home} onClick={(e) => { e.preventDefault(); onHome(); }}>{brand}</a>
+        ) : (
+          <Link className="brand" href={home}>{brand}</Link>
+        )}
         {!compact && (
           <nav className="header__nav" aria-label="Principal">
-            <a href="#servicios">{d.nav.services}</a>
-            <a href="#enfoque">{d.nav.approach}</a>
+            {section('servicios', d.nav.services)}
+            <Link href={pagePath('rates', locale)} aria-current={page === 'rates' ? 'page' : undefined}>{d.nav.rates}</Link>
+            {section('enfoque', d.nav.approach)}
             <a href="#contacto">{d.nav.contact}</a>
           </nav>
         )}
-        <LanguageSwitcher locale={locale} />
+        <LanguageSwitcher locale={locale} page={page} />
       </div>
     </header>
   );
 }
 
-export function LanguageSwitcher({ locale }: { locale: Locale }) {
+/** Cada enlace lleva a la misma página en el otro idioma (desde las tarifas, a las tarifas). */
+export function LanguageSwitcher({ locale, page = 'home' }: { locale: Locale; page?: Page }) {
   return (
     <nav className="lang" aria-label={DICTIONARIES[locale].nav.language}>
       {LOCALES.map((l) => (
-        <a key={l} href={`/${l}/`} hrefLang={l} lang={l} aria-current={l === locale ? 'true' : undefined} title={LOCALE_NAMES[l]}>
+        <a key={l} href={pagePath(page, l)} hrefLang={l} lang={l} aria-current={l === locale ? 'true' : undefined} title={LOCALE_NAMES[l]}>
           {l.toUpperCase()}
         </a>
       ))}

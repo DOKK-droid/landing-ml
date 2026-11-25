@@ -1,9 +1,11 @@
 'use client';
-/* Secciones de la landing: inicio, pasos, servicios, enfoque y barra de selección. */
+/* Secciones de la landing (inicio, pasos, servicios, enfoque y barra de selección) y la oferta de la página de tarifas. */
+import Link from 'next/link';
 import { useRef } from 'react';
 import { SERVICES } from '@/model/catalog';
 import { DICTIONARIES, type Dictionary } from '@/model/i18n';
 import { CONSULTA, discountPercent, EXAMPLE_MINUTES, formatDuration, formatMoney, hourly, meetingCost, offerFigures, offerRates, type OfferRate } from '@/model/offer';
+import { pagePath } from '@/model/seo';
 import type { Locale, ServiceId } from '@/model/types';
 import { usePresence } from '../motion';
 import { ArrowIcon, CheckIcon, ServiceIcon } from './Icons';
@@ -28,12 +30,12 @@ export function Hero({ locale, onStart }: { locale: Locale; onStart: () => void 
             </button>
             <a className="btn btn--ghost" href="#servicios">{d.secondary}</a>
           </div>
-          <a className="hero__offer" href="#consulta">
+          <Link className="hero__offer" href={pagePath('rates', locale)}>
             <span aria-hidden="true">{c.hero} · {c.hourShort}</span>
             <s aria-hidden="true">{fig.hourOriginal}</s>
             <b aria-hidden="true">{fig.hour}</b>
             <span className="sr-only">{c.hero}: {c.srPrice(fig)}</span>
-          </a>
+          </Link>
         </div>
         <Logo variant="hero" className="hero__logo" sweep="visible" />
       </div>
@@ -137,26 +139,82 @@ export function ServicesSection({ locale, selected, openId, flashId, onOpen, onT
   );
 }
 
-/** Rótulo de un tramo de la tarifa: "Menos de 1 h · tarifa normal", "De 1 h a 2 h", "Más de 3 h 30 min". */
+/** Rótulo de un tramo de la tarifa: "Menos de 1 h · tarifa normal", "De 1 h a 1 h 59 min", "Desde 5 h". La reunión de `to` minutos ya es del tramo siguiente. */
 function tierLabel(d: Dictionary['consulta'], r: OfferRate): string {
   if (r.regular) return d.tierBelow(formatDuration(r.to!));
-  return r.to === null ? d.tierFrom(formatDuration(r.from)) : d.tierBetween(formatDuration(r.from), formatDuration(r.to));
+  return r.to === null ? d.tierFrom(formatDuration(r.from)) : d.tierBetween(formatDuration(r.from), formatDuration(r.to - 1));
 }
 
-/** Oferta del relevamiento técnico: tarifa por tramos, referencia por bloque y costo total de ejemplo. Los valores salen de src/config/site.ts. */
-export function OfferSection({ locale, onStart }: { locale: Locale; onStart: () => void }) {
+const money = (amount: number) => formatMoney(amount, CONSULTA.currency);
+/** Qué parte de la tarifa normal se paga ("67 %"), para la barra: cuanto más corta, mayor la ventaja. */
+const share = (price: number, original: number) => ({ '--w': `${Math.round((price / original) * 100)}%` }) as React.CSSProperties;
+
+/** La hora en cada tramo: la barra se acorta y el descuento sube a medida que la reunión es más larga. */
+function TierLadder({ d }: { d: Dictionary['consulta'] }) {
+  return (
+    <div className="offer__examples offer__tiers">
+      <p className="offer__examples-title">{d.tiersTitle(CONSULTA.minutes)}</p>
+      <ul>
+        {offerRates().map((r) => (
+          <li key={r.from} className={`offer__tier ${r.regular ? 'is-regular' : 'is-promo'}`} style={share(r.price, CONSULTA.originalPrice)}>
+            <span className="offer__dur">{tierLabel(d, r)}</span>
+            <b>{money(hourly(r.price))} / h</b>
+            <span className="offer__rate">{money(r.price)} / {CONSULTA.minutes} min</span>
+            {!r.regular && <span className="offer__off offer__off--sm">{d.off(r.off)}</span>}
+            <i className="offer__meter" aria-hidden="true" />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Pocos ejemplos, elegidos para ver la ventaja: el total a tarifa normal tachado, lo que se paga y cuánto se ahorra. */
+function CostExamples({ d }: { d: Dictionary['consulta'] }) {
+  const { from } = offerFigures();
+  return (
+    <div className="offer__examples">
+      <p className="offer__examples-title">{d.examples}</p>
+      <ul>
+        {EXAMPLE_MINUTES.map((minutes) => {
+          const cost = meetingCost(minutes);
+          return (
+            <li key={minutes} className={`offer__ex ${cost.promo ? 'is-promo' : 'is-regular'}`} style={share(cost.price, cost.originalPrice)}>
+              <span className="offer__dur">{formatDuration(minutes)}</span>
+              {cost.promo ? <s><span className="sr-only">{d.was} </span>{money(cost.originalPrice)}</s> : <span aria-hidden="true" />}
+              <b>{money(cost.price)}</b>
+              <span className="offer__ex-note">{cost.promo ? `${d.saving} ${money(cost.saved)} · ${d.off(cost.percent)}` : d.noOffer(from)}</span>
+              <i className="offer__meter" aria-hidden="true" />
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * Oferta del relevamiento técnico: la hora a precio de oferta, cómo baja según la duración y ejemplos de total. Es el contenido de la
+ * página de tarifas (`/es/tarifas/`), donde lleva el título principal; el inicio solo enlaza a ella. Los valores salen de src/config/site.ts.
+ * Desde aquí no hay relevamiento que iniciar (los servicios se eligen en el inicio), así que el botón y el enlace a Soporte van al inicio.
+ */
+export function OfferSection({ locale }: { locale: Locale }) {
   const d = DICTIONARIES[locale].consulta;
   const fig = offerFigures();
+  const rates = offerRates();
+  const best = rates[rates.length - 1];
+  const home = pagePath('home', locale);
   return (
     <section className="section offer" id="consulta" aria-labelledby="offer-title">
       <div className="container">
         <div className="offer__card" data-reveal>
           <div className="offer__copy">
             <span className="offer__badge">{d.badge}</span>
-            <h2 id="offer-title" className="section__title">{d.title}</h2>
+            <h1 id="offer-title" className="section__title">{d.title}</h1>
             <p className="offer__lead">{d.lead}</p>
+            <p className="offer__perk">{d.perk(money(hourly(CONSULTA.price)), money(hourly(best.price)), best.off)}</p>
             <p className="offer__billing">{d.billing(CONSULTA.minutes, fig.from)}</p>
-            <p className="offer__support">{d.support} <a href="#svc-soporte">{d.supportLink}</a></p>
+            <p className="offer__support">{d.support} <Link href={`${home}#svc-soporte`}>{d.supportLink}</Link></p>
           </div>
           <div className="offer__price">
             <p className="sr-only">{d.srPrice(fig)}</p>
@@ -167,38 +225,11 @@ export function OfferSection({ locale, onStart }: { locale: Locale; onStart: () 
             </p>
             <p className="offer__per" aria-hidden="true">{d.perHour}</p>
             <p className="offer__equals" aria-hidden="true">{d.equals(fig)}</p>
-            <div className="offer__examples offer__tiers">
-              <p className="offer__examples-title">{d.tiersTitle(CONSULTA.minutes)}</p>
-              <ul>
-                {offerRates().map((r) => (
-                  <li key={r.from}>
-                    <span className="offer__dur">{tierLabel(d, r)}</span>
-                    <span className="offer__rate">{formatMoney(r.price, CONSULTA.currency)} / {CONSULTA.minutes} min</span>
-                    <b>{formatMoney(hourly(r.price), CONSULTA.currency)} / h</b>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="offer__examples">
-              <p className="offer__examples-title">{d.examples}</p>
-              <ul>
-                {EXAMPLE_MINUTES.map((minutes) => {
-                  const cost = meetingCost(minutes);
-                  return (
-                    <li key={minutes}>
-                      <span className="offer__dur">{formatDuration(minutes)}</span>
-                      {cost.price < cost.originalPrice
-                        ? <s><span className="sr-only">{d.was} </span>{formatMoney(cost.originalPrice, CONSULTA.currency)}</s>
-                        : <span aria-hidden="true" />}
-                      <b>{formatMoney(cost.price, CONSULTA.currency)}</b>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-            <button type="button" className="btn btn--primary" onClick={onStart}>
+            <TierLadder d={d} />
+            <CostExamples d={d} />
+            <Link className="btn btn--primary" href={`${home}#servicios`}>
               {d.cta} <ArrowIcon className="icon" />
-            </button>
+            </Link>
           </div>
         </div>
       </div>

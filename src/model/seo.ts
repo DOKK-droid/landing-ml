@@ -15,23 +15,36 @@ export interface SeoSite {
   linkedin: string;
 }
 
-/** Ruta de cada idioma (con la barra final: el sitio exporta con trailingSlash). */
-export const localePath = (locale: Locale): string => `/${locale}/`;
+/** Páginas del sitio: el inicio (`/es/`) y las tarifas (`/es/tarifas/`). Cada una existe en los tres idiomas. */
+export const PAGES = ['home', 'rates'] as const;
+export type Page = (typeof PAGES)[number];
+
+/** Tramo de la dirección de las tarifas. Es el mismo en los tres idiomas. */
+export const RATES_SLUG = 'tarifas';
+
+/** Ruta de una página en un idioma (con la barra final: el sitio exporta con trailingSlash). */
+export const pagePath = (page: Page, locale: Locale): string => (page === 'rates' ? `/${locale}/${RATES_SLUG}/` : `/${locale}/`);
+
+/** Ruta del inicio de cada idioma. */
+export const localePath = (locale: Locale): string => pagePath('home', locale);
+
+/** Ruta de las tarifas de cada idioma. */
+export const ratesPath = (locale: Locale): string => pagePath('rates', locale);
 
 /** URL base sin barra final. */
 export const baseUrl = (url: string): string => url.replace(/\/+$/, '');
 
-/** URL absoluta de la página de un idioma. */
-export const pageUrl = (url: string, locale: Locale): string => `${baseUrl(url)}${localePath(locale)}`;
+/** URL absoluta de una página de un idioma (por omisión, el inicio). */
+export const pageUrl = (url: string, locale: Locale, page: Page = 'home'): string => `${baseUrl(url)}${pagePath(page, locale)}`;
 
-/** Idiomas alternativos como rutas (para `metadata.alternates.languages`). `x-default` es la página para quien no coincide con ninguno. */
-export function hreflangPaths(): Record<Locale | 'x-default', string> {
-  return { es: localePath('es'), pt: localePath('pt'), en: localePath('en'), 'x-default': localePath(DEFAULT_LOCALE) };
+/** Idiomas alternativos de una página como rutas (para `metadata.alternates.languages`). `x-default` es la página para quien no coincide con ninguno. */
+export function hreflangPaths(page: Page = 'home'): Record<Locale | 'x-default', string> {
+  return { es: pagePath(page, 'es'), pt: pagePath(page, 'pt'), en: pagePath(page, 'en'), 'x-default': pagePath(page, DEFAULT_LOCALE) };
 }
 
 /** Lo mismo con URLs absolutas (el sitemap las exige). */
-export function hreflangUrls(url: string): Record<Locale | 'x-default', string> {
-  const paths = hreflangPaths();
+export function hreflangUrls(url: string, page: Page = 'home'): Record<Locale | 'x-default', string> {
+  const paths = hreflangPaths(page);
   return Object.fromEntries(Object.entries(paths).map(([k, p]) => [k, `${baseUrl(url)}${p}`])) as Record<Locale | 'x-default', string>;
 }
 

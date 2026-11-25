@@ -25,41 +25,44 @@ export const SERVICES: Service[] = [
     id: 'consultoria',
     color: '#2fe6ff',
     short: t('Consultoría', 'Consultoria', 'Consulting'),
-    tagline: t('Diagnóstico del negocio antes de invertir', 'Diagnóstico do negócio antes de investir', 'Business diagnosis before you invest'),
+    tagline: t('Asesoría tecnológica, de una consulta a un proyecto', 'Assessoria tecnológica, de uma consulta a um projeto', 'Technology advice, from a quick question to a project'),
     title: t('Consultoría & Gestión', 'Consultoria & Gestão', 'Consulting & Management'),
     summary: t(
-      'Analizo cómo funciona hoy su organización para detectar pérdidas, riesgos y oportunidades, y evaluar si una inversión conviene antes de hacerla.',
-      'Analiso como sua organização funciona hoje para identificar perdas, riscos e oportunidades, e avaliar se um investimento vale a pena antes de fazê-lo.',
-      'I analyze how your organization works today to find losses, risks and opportunities, and assess whether an investment pays off before you make it.',
+      'Asesoría tecnológica para empresas y para proyectos individuales: desde una consulta puntual sobre sistemas, integraciones o inteligencia artificial hasta el diagnóstico de una operación o la evaluación de una inversión antes de realizarla.',
+      'Assessoria tecnológica para empresas e para projetos individuais: desde uma consulta pontual sobre sistemas, integrações ou inteligência artificial até o diagnóstico de uma operação ou a avaliação de um investimento antes de realizá-lo.',
+      'Technology advice for companies and for individual projects: from a one-off question about systems, integrations or artificial intelligence to the diagnosis of an operation or the assessment of an investment before it is made.',
     ),
     includes: [
+      t('Consultas puntuales sobre sistemas, integraciones o inteligencia artificial', 'Consultas pontuais sobre sistemas, integrações ou inteligência artificial', 'One-off questions on systems, integrations or artificial intelligence'),
       t('Diagnóstico de procesos y puntos de pérdida', 'Diagnóstico de processos e pontos de perda', 'Process diagnosis and loss points'),
       t('Estudio de viabilidad y retorno', 'Estudo de viabilidade e retorno', 'Feasibility and return study'),
       t('Auditoría de sistemas e información existentes', 'Auditoria de sistemas e informações existentes', 'Audit of existing systems and information'),
       t('Plan de automatización por prioridades', 'Plano de automação por prioridades', 'Prioritized automation plan'),
     ],
     needs: t(
-      'Para preparar la reunión me ayuda saber qué le preocupa hoy, cómo se trabaja actualmente y qué decisión necesita tomar.',
-      'Para preparar a reunião, ajuda saber o que preocupa hoje, como se trabalha atualmente e que decisão precisa ser tomada.',
-      'To prepare the meeting, it helps to know what worries you today, how work is done now and what decision you need to make.',
+      'Para preparar la reunión es útil conocer qué consulta o proyecto tiene en mente, cómo se resuelve hoy y qué decisión debe tomar.',
+      'Para preparar a reunião, ajuda saber que consulta ou projeto você tem em mente, como isso é resolvido hoje e que decisão precisa ser tomada.',
+      'To prepare the meeting, it helps to know what question or project you have in mind, how it is handled today and what decision you need to make.',
     ),
     questions: [
       {
         id: 'c_motivo', type: 'multi', required: true,
         label: t('¿Qué lo lleva a consultar?', 'O que o leva a consultar?', 'What brings you here?'),
         options: [
-          o('tiempo', 'Se pierde tiempo o dinero en tareas repetitivas', 'Perde-se tempo ou dinheiro em tarefas repetitivas', 'Time or money is lost on repetitive tasks'),
+          o('puntual', 'Tengo una consulta puntual sobre sistemas, integraciones o inteligencia artificial', 'Tenho uma consulta pontual sobre sistemas, integrações ou inteligência artificial', 'I have a one-off question about systems, integrations or artificial intelligence'),
+          o('tiempo','Se pierde tiempo o dinero en tareas repetitivas', 'Perde-se tempo ou dinheiro em tarefas repetitivas', 'Time or money is lost on repetitive tasks'),
           o('info', 'No tengo información clara para decidir', 'Não tenho informações claras para decidir', "I don't have clear information to decide"),
           o('sistemas', 'Las herramientas actuales ya no alcanzan', 'As ferramentas atuais já não são suficientes', 'Current tools are no longer enough'),
           o('evaluar', 'Quiero evaluar un proyecto antes de invertir', 'Quero avaliar um projeto antes de investir', 'I want to assess a project before investing'),
-          o('ordenar', 'Necesito ordenar procesos o el trabajo del equipo', 'Preciso organizar processos ou o trabalho da equipe', 'I need to organize processes or teamwork'),
+          o('proyecto', 'Tengo un proyecto o una idea propia y quiero una opinión técnica', 'Tenho um projeto ou uma ideia própria e quero uma opinião técnica', 'I have my own project or idea and want a technical opinion'),
+          o('ordenar', 'Necesito ordenar procesos o la forma de trabajar', 'Preciso organizar processos ou a forma de trabalhar', 'I need to organize processes or the way work gets done'),
           OTHER,
         ],
       },
       {
         id: 'c_situacion', type: 'textarea', required: true,
-        label: t('Cuente brevemente cómo se trabaja hoy en el área que le preocupa', 'Conte brevemente como se trabalha hoje na área que o preocupa', 'Briefly describe how the area you are concerned about works today'),
-        placeholder: t('Ej.: los pedidos se toman por teléfono y se anotan en planillas', 'Ex.: os pedidos são feitos por telefone e anotados em planilhas', 'E.g.: orders are taken by phone and written down in spreadsheets'),
+        label: t('Cuente brevemente su consulta o cómo se trabaja hoy en el área que le preocupa', 'Conte brevemente sua consulta ou como se trabalha hoje na área que o preocupa', 'Briefly describe your question, or how the area you are concerned about works today'),
+        placeholder: t('Ej.: ¿se puede conectar mi tienda online con la facturación? Hoy los pedidos se anotan en planillas', 'Ex.: dá para conectar minha loja online ao faturamento? Hoje os pedidos são anotados em planilhas', 'E.g.: can my online store be connected to invoicing? Today orders are written down in spreadsheets'),
       },
       {
         id: 'c_herramientas', type: 'multi',
@@ -87,9 +90,9 @@ export const SERVICES: Service[] = [
     tagline: t('Sistemas a medida de su forma de trabajar', 'Sistemas sob medida para o seu jeito de trabalhar', 'Systems built around the way you work'),
     title: t('Desarrollo de Software', 'Desenvolvimento de Software', 'Software Development'),
     summary: t(
-      'Diseño y construyo un sistema a la medida de su forma de trabajar, con la información ordenada y controles de calidad en cada etapa.',
-      'Projeto e construo um sistema sob medida para sua forma de trabalhar, com informações organizadas e controle de qualidade em cada etapa.',
-      'I design and build a system tailored to the way you work, with well-organized information and quality checks at every stage.',
+      'Diseño y desarrollo de un sistema a la medida de su forma de trabajar, con la información ordenada y controles de calidad en cada etapa.',
+      'Projeto e desenvolvimento de um sistema sob medida para sua forma de trabalhar, com informações organizadas e controle de qualidade em cada etapa.',
+      'Design and development of a system tailored to the way you work, with well-organized information and quality checks at every stage.',
     ),
     includes: [
       t('Relevamiento y modelado de su negocio', 'Levantamento e modelagem do seu negócio', 'Discovery and modeling of your business'),
@@ -98,7 +101,7 @@ export const SERVICES: Service[] = [
       t('Entregas por etapas validadas por su equipo', 'Entregas por etapas validadas pela sua equipe', 'Staged deliveries validated by your team'),
     ],
     needs: t(
-      'Me ayuda saber qué problema debe resolver el sistema, quién lo va a usar y qué tiene que hacer sí o sí.',
+      'Es útil conocer qué problema debe resolver el sistema, quién lo utilizará y qué funciones son indispensables.',
       'Ajuda saber que problema o sistema deve resolver, quem vai usá-lo e o que ele precisa fazer obrigatoriamente.',
       'It helps to know what problem the system must solve, who will use it and what it absolutely has to do.',
     ),
@@ -147,9 +150,9 @@ export const SERVICES: Service[] = [
     tagline: t('Ventas, stock y clientes en una sola plataforma', 'Vendas, estoque e clientes em uma só plataforma', 'Sales, stock and customers in one platform'),
     title: t('Gestión & Integraciones', 'Gestão & Integrações', 'Management & Integrations'),
     summary: t(
-      'Unifico la gestión de su empresa (ventas, clientes, stock, compras y facturación) en una sola plataforma, y la conecto con las herramientas que ya usa.',
-      'Unifico a gestão da sua empresa (vendas, clientes, estoque, compras e faturamento) em uma só plataforma e a conecto às ferramentas que você já usa.',
-      'I bring your company management (sales, customers, stock, purchasing and invoicing) into a single platform and connect it to the tools you already use.',
+      'Unificación de la gestión de su empresa (ventas, clientes, stock, compras y facturación) en una sola plataforma, conectada con las herramientas que ya utiliza.',
+      'Unificação da gestão da sua empresa (vendas, clientes, estoque, compras e faturamento) em uma só plataforma, conectada às ferramentas que você já utiliza.',
+      'Unification of company management (sales, customers, stock, purchasing and invoicing) on a single platform, connected to the tools you already use.',
     ),
     includes: [
       t('Plataforma de gestión integral (ERP / CRM)', 'Plataforma de gestão integrada (ERP / CRM)', 'Integrated management platform (ERP / CRM)'),
@@ -158,7 +161,7 @@ export const SERVICES: Service[] = [
       t('Migración de la información y capacitación', 'Migração das informações e treinamento', 'Data migration and training'),
     ],
     needs: t(
-      'Me ayuda saber qué áreas quiere ordenar, cómo se manejan hoy y qué herramientas tienen que seguir funcionando.',
+      'Es útil conocer qué áreas se desea ordenar, cómo se gestionan hoy y qué herramientas deben seguir en funcionamiento.',
       'Ajuda saber quais áreas quer organizar, como são gerenciadas hoje e quais ferramentas precisam continuar funcionando.',
       'It helps to know which areas you want to organize, how they are handled today and which tools must keep working.',
     ),
@@ -201,9 +204,9 @@ export const SERVICES: Service[] = [
     tagline: t('Redes, servidores y nube estables y seguros', 'Redes, servidores e nuvem estáveis e seguros', 'Reliable, secure networks, servers and cloud'),
     title: t('Infraestructura & Redes', 'Infraestrutura & Redes', 'Infrastructure & Networks'),
     summary: t(
-      'Planifico y pongo en marcha la base técnica (servidores, nube, red y seguridad) para que todo funcione de forma estable y protegida.',
-      'Planejo e implanto a base técnica (servidores, nuvem, rede e segurança) para que tudo funcione de forma estável e protegida.',
-      'I plan and set up the technical foundation (servers, cloud, network and security) so everything runs reliably and securely.',
+      'Planificación e implementación de la base técnica (servidores, nube, red y seguridad) para que todo funcione de forma estable y protegida.',
+      'Planejamento e implantação da base técnica (servidores, nuvem, rede e segurança) para que tudo funcione de forma estável e protegida.',
+      'Planning and implementation of the technical foundation (servers, cloud, network and security) so everything runs reliably and securely.',
     ),
     includes: [
       t('Servidores propios o en la nube', 'Servidores próprios ou na nuvem', 'On-site or cloud servers'),
@@ -212,7 +215,7 @@ export const SERVICES: Service[] = [
       t('Puesta en marcha y documentación', 'Implantação e documentação', 'Setup and documentation'),
     ],
     needs: t(
-      'Me ayuda saber qué necesita, cuántos equipos y lugares hay, y qué problemas notan hoy.',
+      'Es útil conocer qué se necesita, cuántos equipos y sedes existen, y qué problemas se observan hoy.',
       'Ajuda saber o que precisa, quantos equipamentos e locais existem e quais problemas percebem hoje.',
       'It helps to know what you need, how many devices and locations there are, and what problems you notice today.',
     ),
@@ -264,9 +267,9 @@ export const SERVICES: Service[] = [
     tagline: t('Automatizar lo que hoy se hace a mano', 'Automatizar o que hoje é feito à mão', 'Automate what is done by hand today'),
     title: t('Inteligencia Artificial', 'Inteligência Artificial', 'Artificial Intelligence'),
     summary: t(
-      'Aplico inteligencia artificial donde genera un ahorro real: leer documentos e imágenes, responder consultas, clasificar información o asistir a su equipo.',
-      'Aplico inteligência artificial onde ela gera economia real: ler documentos e imagens, responder dúvidas, classificar informações ou apoiar sua equipe.',
-      'I apply artificial intelligence where it creates real savings: reading documents and images, answering inquiries, sorting information or assisting your team.',
+      'Aplicación de inteligencia artificial donde genera un ahorro real: lectura de documentos e imágenes, respuesta a consultas, clasificación de información o asistencia a su equipo.',
+      'Aplicação de inteligência artificial onde ela gera economia real: leitura de documentos e imagens, resposta a dúvidas, classificação de informações ou apoio à sua equipe.',
+      'Application of artificial intelligence where it creates real savings: reading documents and images, answering inquiries, sorting information or assisting your team.',
     ),
     includes: [
       t('Lectura automática de imágenes y documentos', 'Leitura automática de imagens e documentos', 'Automatic reading of images and documents'),
@@ -275,7 +278,7 @@ export const SERVICES: Service[] = [
       t('Evaluación previa de factibilidad', 'Avaliação prévia de viabilidade', 'Up-front feasibility assessment'),
     ],
     needs: t(
-      'Me ayuda saber qué tarea se hace hoy a mano, con qué frecuencia y si hay ejemplos guardados.',
+      'Es útil conocer qué tarea se realiza hoy de forma manual, con qué frecuencia y si existen ejemplos guardados.',
       'Ajuda saber qual tarefa é feita hoje manualmente, com que frequência e se há exemplos guardados.',
       'It helps to know which task is done by hand today, how often, and whether examples have been kept.',
     ),
@@ -331,9 +334,9 @@ export const SERVICES: Service[] = [
     ),
     title: t('Soporte & Hardware 24/7', 'Suporte & Hardware 24/7', 'Support & Hardware 24/7'),
     summary: t(
-      'Atiendo emergencias las 24 horas, reparo equipos y realizo su mantenimiento, de forma remota o presencial, para que su operación no se detenga.',
-      'Atendo emergências 24 horas, conserto equipamentos e faço sua manutenção, de forma remota ou presencial, para que sua operação não pare.',
-      'I handle emergencies around the clock, repair equipment and maintain it, remotely or on-site, so your operation never stops.',
+      'Atención de emergencias las 24 horas, reparación y mantenimiento de equipos, de forma remota o presencial, para que su operación no se detenga.',
+      'Atendimento a emergências 24 horas, conserto e manutenção de equipamentos, de forma remota ou presencial, para que sua operação não pare.',
+      'Round-the-clock emergency response, equipment repair and maintenance, remote or on-site, so your operation never stops.',
     ),
     includes: [
       t('Emergencias 24/7, en remoto o presencial', 'Emergências 24/7, remotas ou presenciais', '24/7 emergencies, remote or on-site'),
@@ -342,7 +345,7 @@ export const SERVICES: Service[] = [
       t('Optimización de sistemas operativos', 'Otimização de sistemas operacionais', 'Operating system optimization'),
     ],
     needs: t(
-      'Me ayuda saber si es una emergencia o un mantenimiento, qué equipo está involucrado, qué está pasando y si prefiere atención remota o presencial.',
+      'Es útil conocer si se trata de una emergencia o de un mantenimiento, qué equipo está involucrado, qué ocurre y si prefiere atención remota o presencial.',
       'Ajuda saber se é uma emergência ou uma manutenção, qual equipamento está envolvido, o que está acontecendo e se prefere atendimento remoto ou presencial.',
       'It helps to know whether it is an emergency or maintenance, which equipment is involved, what is happening and whether you prefer remote or on-site service.',
     ),
@@ -433,9 +436,9 @@ export const CLOSING_SECTION: Section = {
   color: '#ffe27a',
   title: t('Expectativas y reunión', 'Expectativas e reunião', 'Expectations and meeting'),
   intro: t(
-    'Con esto preparo la videollamada. La propuesta final la definimos juntos según lo que más le convenga.',
-    'Com isso preparo a videochamada. A proposta final definimos juntos conforme o que for mais conveniente para você.',
-    'This helps me prepare the video call. We will define the final proposal together, based on what suits you best.',
+    'Esta información permite preparar la videollamada. La propuesta final se define en conjunto, según lo que más convenga a su organización.',
+    'Estas informações permitem preparar a videochamada. A proposta final é definida em conjunto, conforme o que for mais conveniente para você.',
+    'This information is used to prepare the video call. The final proposal is defined jointly, based on what suits you best.',
   ),
   questions: [
     {
@@ -501,9 +504,9 @@ export const CONTACT_SECTION: Section = {
   color: '#e8edf4',
   title: t('Datos de contacto', 'Dados de contato', 'Contact details'),
   intro: t(
-    'Último paso: así sé con quién hablo. Su número de WhatsApp llega junto con el mensaje.',
-    'Último passo: assim sei com quem falo. Seu número de WhatsApp chega junto com a mensagem.',
-    'Last step: so I know who I am talking to. Your WhatsApp number arrives with the message.',
+    'Último paso: estos datos permiten identificar a quien realiza la consulta. Su número de WhatsApp llega junto con el mensaje.',
+    'Último passo: estes dados permitem identificar quem faz a consulta. Seu número de WhatsApp chega junto com a mensagem.',
+    'Last step: these details identify who is making the inquiry. Your WhatsApp number arrives with the message.',
   ),
   questions: [
     { id: 'p_nombre', type: 'text', required: true, autoComplete: 'name', label: t('Nombre y apellido', 'Nome e sobrenome', 'Full name') },

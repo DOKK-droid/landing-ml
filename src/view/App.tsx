@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSurvey } from '@/controller/useSurvey';
 import type { Locale, ServiceId } from '@/model/types';
 import { EmergencyButton, SiteFooter, SiteHeader } from './components/Layout';
-import { Approach, Concept, Hero, OfferSection, SelectionBar, ServicesSection } from './components/Sections';
+import { Approach, Concept, Hero, SelectionBar, ServicesSection } from './components/Sections';
 import { hasHover, prefersReducedMotion, scrollBehavior, useReveal } from './motion';
 import { SurveyView } from './survey/SurveyView';
 
@@ -60,7 +60,6 @@ export function App({ locale }: { locale: Locale }) {
           <Hero locale={locale} onStart={startOrPick} />
           <Concept locale={locale} selected={state.selected} onPick={pickFromDiagram} />
           <ServicesSection locale={locale} selected={state.selected} openId={openId} flashId={flashId} onOpen={setOpenId} onToggle={actions.toggleService} />
-          <OfferSection locale={locale} onStart={startOrPick} />
           <Approach locale={locale} />
         </main>
       )}

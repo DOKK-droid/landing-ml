@@ -30,9 +30,9 @@ const SHARED = {
  * `flow`: la estela lleva un destello por cada línea (solo se anima en el banner de carga: ver `.logo__flow` en globals.css).
  * `sweep`: el logo entero lleva una máscara hecha con copias de sus formas, cada una con un degradado a lo largo de su eje, y encima de cada
  * forma otra copia, clara, con la luz del frente del barrido (view/logoSweep.ts): así el logo aparece y se borra con un barrido.
- * Dónde nace: `'hidden'` con el logo oculto y lo muestra el script (el banner de carga, que lo mueve `startSweep`); `'visible'` con el logo
- * entero a la vista, para que, si el script no llega, se vea igual (el inicio, donde lo mueve la escena: `startLogoScene`). Sin ninguna de las
- * dos opciones el dibujo no cambia.
+ * Dónde nace: `'hidden'` con el logo oculto y lo muestra el script; `'visible'` con el logo entero a la vista, para que se vea desde el primer
+ * pintado y, si el script no llega, se vea igual: el inicio (lo mueve la escena: `startLogoScene`) y el banner de carga (lo mueve `startSweep`,
+ * que al arrancar empieza borrándolo, sin saltos). Sin ninguna de las dos opciones el dibujo no cambia.
  */
 export const Logo = memo(function Logo({ variant = 'mark', className, flow = false, sweep }: { variant?: 'mark' | 'hero'; className?: string; flow?: boolean; sweep?: 'hidden' | 'visible' }) {
   const uid = useId().replace(/:/g, '');

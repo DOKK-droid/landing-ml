@@ -4,11 +4,12 @@ import { RESUME_ATTR, RESUME_FAILSAFE_MS, STORAGE_KEY, resumeScript } from '@/co
 import { initialState, sanitize, type SurveyState } from '@/controller/surveyReducer';
 
 /** Ejecuta el script de <head> contra un "navegador" mínimo y devuelve lo que hizo. */
-function runScript(stored: string | null | (() => never)) {
+function runScript(stored: string | null | (() => never), pathname = '/es/') {
   const calls: string[] = [];
   const timers: { fn: () => void; ms: number }[] = [];
   const keysRead: string[] = [];
   runInNewContext(resumeScript, {
+    location: { pathname },
     sessionStorage: {
       getItem: (key: string) => {
         keysRead.push(key);

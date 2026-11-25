@@ -106,6 +106,7 @@ a, button, label { -webkit-tap-highlight-color: transparent; touch-action: manip
 .brand__text small { font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .header__nav { display: none; gap: 24px; margin-left: auto; }
 .header__nav a { color: var(--muted); font-size: 15px; transition: color var(--t-fast) ease; }
+.header__nav a[aria-current='page'] { color: var(--cyan-2); }
 .lang { display: flex; margin-left: auto; border: 1px solid var(--line-2); border-radius: 999px; padding: 3px; flex: none; }
 .header__nav + .lang { margin-left: 8px; }
 .lang a { font: 600 12px/1 var(--font-body); letter-spacing: 0.08em; color: var(--muted); padding: 7px 10px; border-radius: 999px; min-width: 36px; text-align: center; transition: color var(--t-fast) ease, background-color var(--t-base) ease; }
@@ -343,6 +344,15 @@ html[data-boot='loading'] .hero__logo:not([data-shown]) { animation: logo-failsa
   transform: translateY(101%); opacity: 0; visibility: hidden;
   transition: transform .38s var(--ease), opacity .26s ease, visibility 0s linear .38s;
 }
+/* Barra de desplazamiento del detalle: fina, sin pista y del color del servicio (--c, definido en cada .sheet).
+ * Se usan las propiedades estándar; Chrome ignora ::-webkit-scrollbar cuando scrollbar-color está definido,
+ * así que ese estilo queda solo de respaldo para los navegadores que aún no las entienden. */
+.sheet__detail { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--c) 60%, transparent) transparent; }
+@supports not (scrollbar-color: auto) {
+  .sheet__detail::-webkit-scrollbar { width: 6px; }
+  .sheet__detail::-webkit-scrollbar-track { margin: 8px 0; background: transparent; }
+  .sheet__detail::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(201, 209, 221, 0.4); background: color-mix(in srgb, var(--c) 60%, transparent); }
+}
 .sheet__detail p { color: var(--muted); }
 .sheet__detail .sheet__detail-title { font-size: 19px; color: var(--text); margin: 0 0 8px; text-transform: none; letter-spacing: 0.01em; }
 .sheet__detail h4 { font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--c); margin: 12px 0 6px; }
@@ -398,6 +408,8 @@ html[data-boot='loading'] .hero__logo:not([data-shown]) { animation: logo-failsa
 
 /* Oferta: consulta de asesoría */
 .offer { padding-top: 24px; }
+/* En la página de tarifas la oferta es lo primero bajo la cabecera, no una sección entre otras. */
+.rates .offer { padding-top: 40px; }
 .offer__card {
   display: grid; gap: 24px; padding: 26px 22px; border-radius: calc(var(--radius) + 4px);
   border: 1px solid color-mix(in srgb, var(--amber) 42%, var(--line));
@@ -415,13 +427,35 @@ html[data-boot='loading'] .hero__logo:not([data-shown]) { animation: logo-failsa
 .offer__per { margin: 0 0 4px; color: var(--muted); font-size: 15px; }
 .offer__equals { margin: 0 0 6px; color: var(--text); font-size: 15px; font-weight: 500; }
 .offer__rate { color: var(--dim); font-size: 14px; white-space: nowrap; }
-.offer__examples { align-self: stretch; margin: 8px 0 14px; padding: 12px 14px; border-radius: var(--radius-s); border: 1px solid var(--line); background: rgba(0, 0, 0, 0.22); }
+/* La ventaja en una frase: la hora baja a medida que la reunión es más larga. */
+.offer__perk {
+  margin-top: 16px; padding: 12px 16px; max-width: 56ch; border-left: 3px solid var(--wa); border-radius: 0 var(--radius-s) var(--radius-s) 0;
+  background: rgba(37, 211, 102, 0.09); color: var(--text); font-size: 15.5px; font-weight: 500; line-height: 1.5;
+}
+.offer__examples { align-self: stretch; margin: 10px 0 4px; padding: 14px 16px 16px; border-radius: var(--radius-s); border: 1px solid var(--line); background: rgba(0, 0, 0, 0.22); }
 .offer__examples-title { font: 600 11.5px/1.3 var(--font-body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); }
-.offer__examples ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
-.offer__examples li { display: grid; grid-template-columns: 1fr auto auto; align-items: baseline; gap: 12px; }
+.offer__examples ul { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 15px; }
 .offer__dur { font-weight: 500; }
 .offer__examples s { color: var(--dim); font-size: 14px; }
-.offer__examples b { min-width: 6ch; text-align: right; font: 700 17px/1 var(--font-head); color: #ffcf7a; }
+.offer__examples b { text-align: right; font: 700 18px/1 var(--font-head); color: #ffcf7a; white-space: nowrap; }
+.offer__off--sm { padding: 4px 8px; font-size: 12px; justify-self: end; align-self: center; }
+/* Una fila de la tarifa: tramo y precio de la hora arriba; precio del bloque y descuento debajo; barra al pie. */
+.offer__tier, .offer__ex { display: grid; align-items: baseline; column-gap: 12px; row-gap: 6px; }
+.offer__tier { grid-template-columns: minmax(0, 1fr) auto; }
+.offer__tier.is-regular b { color: var(--muted); }
+/* Una fila de ejemplo: duración, total a tarifa normal tachado y lo que se paga; el ahorro debajo; barra al pie. */
+.offer__ex { grid-template-columns: minmax(0, 1fr) auto auto; }
+.offer__ex s, .offer__ex b { min-width: 7ch; text-align: right; }
+.offer__ex-note { grid-column: 1 / -1; font-size: 13.5px; color: var(--dim); }
+.offer__ex.is-promo .offer__ex-note { color: var(--wa); font-weight: 600; }
+/* La barra: lo pintado es lo que se paga sobre la tarifa normal (--w) y el resto, tenue y verde, lo que se ahorra. */
+.offer__meter { grid-column: 1 / -1; position: relative; display: block; height: 6px; border-radius: 999px; overflow: hidden; background: rgba(255, 255, 255, 0.07); }
+.offer__meter::before { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--w, 100%); border-radius: inherit; background: var(--dim); }
+.is-promo > .offer__meter { background: rgba(37, 211, 102, 0.26); }
+.is-promo > .offer__meter::before { background: linear-gradient(90deg, var(--amber), #ffcf7a); }
+/* Al aparecer la tarjeta, las barras crecen hasta su largo (con "reducir movimiento" se ven terminadas). */
+.reveal-in .offer__meter::before { animation: meter-grow .9s var(--ease) calc(var(--rd, 0ms) + 260ms) backwards; }
+@keyframes meter-grow { from { width: 0; } }
 
 /* Enfoque (v1) */
 .approach { padding-top: 16px; }

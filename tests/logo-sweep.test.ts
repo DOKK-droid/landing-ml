@@ -6,8 +6,8 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  CORE_W, DECAY, EASE_POW, EDGE, FRONT_START, GLOW_GROW, IN_AT, IN_DONE, IN_MS, LEAD, MASK_GROW, OUT_AT, OUT_DONE, OUT_MS, PATH_LENGTH, PEAK, PERIOD_MS, SEGMENTS, SETTLE_T, SHAPES, TONE_COLOR,
-  TRAVEL, frontAt, lightAt, litOpacity, profile, startSweep, stopArc, stopCount, stopOffset, visOpacity, visibleAt,
+  CORE_W, DECAY, EASE_POW, EDGE, ENTERED_MS, FRONT_START, GLOW_GROW, IN_AT, IN_DONE, IN_MS, LEAD, MASK_GROW, OUT_AT, OUT_DONE, OUT_MS, PATH_LENGTH, PEAK, PERIOD_MS, SEGMENTS, SETTLE_T, SHAPES, TONE_COLOR,
+  TRAVEL, createSweep, frontAt, lightAt, litOpacity, profile, startSweep, stopArc, stopCount, stopOffset, visOpacity, visibleAt,
 } from '@/view/logoSweep';
 import { BASE_Y, CORNER_X, DIAG_LEN, FLOW_OVER, H2, LEG, TRAIL, onDiag, trailDashes, trailDiagPiece, trailFlowPath, trailFootPiece, trailMaskDiag, trailMaskFoot } from '@/view/logoTrail';
 import { Logo } from '@/view/components/Logo';
@@ -16,6 +16,7 @@ import { MIN_FIRST_MS } from '@/view/components/Boot';
 type Pt = readonly [number, number];
 const sweep = () => renderToStaticMarkup(createElement(Logo, { variant: 'mark', sweep: 'hidden' }));
 const plain = () => renderToStaticMarkup(createElement(Logo, { variant: 'mark' }));
+const shown = () => renderToStaticMarkup(createElement(Logo, { variant: 'mark', sweep: 'visible' }));
 const seg = (id: string) => SEGMENTS.find((s) => s.id === id)!;
 const cross = (a: Pt, b: Pt) => a[0] * b[1] - a[1] * b[0];
 const sub = (a: Pt, b: Pt): Pt => [a[0] - b[0], a[1] - b[1]];
@@ -334,6 +335,45 @@ describe('el marcado: máscaras y copias de luz, apagadas', () => {
   });
 });
 
+describe('arranque desde el logo ya entero (el banner nace a la vista y el barrido lo borra primero)', () => {
+  const arcs = SEGMENTS.flatMap((sg) => Array.from({ length: stopCount(sg) }, (_, k) => stopArc(sg, k)));
+
+  it('con `entered` no hay aparición: el logo está entero y sin luz hasta que llega el borrado, y el borrado es el de siempre', () => {
+    for (const arc of arcs) {
+      expect(visibleAt(arc, OUT_AT, false, true), `arco ${arc} al arrancar`).toBe(1);
+      expect(lightAt(arc, OUT_AT, false, true), `luz ${arc} al arrancar`).toBe(0);
+      expect(visibleAt(arc, OUT_DONE, false, true), `arco ${arc} al terminar el borrado`).toBe(0);
+    }
+    // a mitad del borrado la estela ya se fue y la punta de la L sigue
+    const tipArc = seg('foot').s0 + seg('foot').len;
+    expect(visibleAt(tipArc, OUT_AT + OUT_MS * 0.6, false, true), 'la punta de la L sigue entera').toBe(1);
+    expect(visibleAt(seg('trail-diag').s0, OUT_AT + OUT_MS * 0.6, false, true), 'la estela ya se borró').toBe(0);
+    // sin `entered` es el comportamiento de siempre: al empezar el borrado la punta de la L aún no ha aparecido
+    expect(visibleAt(tipArc, OUT_AT, false), 'sin `entered` la punta de la L aún no aparece').toBe(0);
+  });
+
+  it('el primer ciclo dura lo que queda del periodo desde que empieza el borrado, y al terminar todo está apagado (empalma con el bucle normal)', () => {
+    expect(ENTERED_MS).toBe(PERIOD_MS - OUT_AT);
+    for (const arc of arcs) {
+      expect(visibleAt(arc, OUT_AT + ENTERED_MS - 1, false, true), 'apagado al acabar el primer ciclo').toBe(0);
+      expect(visibleAt(arc, 0), 'y el periodo siguiente arranca apagado').toBe(0);
+    }
+  });
+
+  it('el marcado `visible` nace con toda la máscara en 1 y sin luz, `hidden` con todo en 0, y el motor lo distingue', () => {
+    const on = document.createElement('div'); on.innerHTML = shown();
+    const off = document.createElement('div'); off.innerHTML = sweep();
+    const all = (root: Element, kind: string) => Array.from(root.querySelectorAll('linearGradient[data-sweep]'))
+      .filter((g) => g.getAttribute('data-sweep')!.startsWith(`${kind}:`))
+      .flatMap((g) => Array.from(g.querySelectorAll('stop'), (x) => Number(x.getAttribute('stop-opacity'))));
+    expect(Math.min(...all(on, 'vis'))).toBe(1);
+    expect(Math.max(...all(on, 'lit')), 'sin luz').toBe(0);
+    expect(Math.max(...all(off, 'vis'))).toBe(0);
+    expect(createSweep(on)!.startsVisible).toBe(true);
+    expect(createSweep(off)!.startsVisible).toBe(false);
+  });
+});
+
 describe('el motor (startSweep)', () => {
   let frames: FrameRequestCallback[] = [];
   let cancelled = 0;
@@ -425,6 +465,63 @@ describe('el motor (startSweep)', () => {
     startSweep(container)();
     expect(frames).toHaveLength(0);
     for (const s of SEGMENTS) { expect(Math.min(...stopsOf('vis', s.id)), `${s.id}: se ve`).toBe(1); expect(Math.max(...stopsOf('lit', s.id)), `${s.id}: sin luz`).toBe(0); }
+  });
+
+  describe('con el logo ya entero (marcado `visible`, como el banner)', () => {
+    beforeEach(() => { container.innerHTML = shown(); });
+
+    it('el primer cuadro es idéntico a lo que ya se veía: no escribe nada (sin salto a oculto)', () => {
+      const spy = vi.spyOn(Element.prototype, 'setAttribute');
+      startSweep(container);
+      run(0);
+      expect(spy, 'ni una parada cambia al arrancar').not.toHaveBeenCalled();
+      for (const sg of SEGMENTS) expect(Math.min(...stopsOf('vis', sg.id)), sg.id).toBe(1);
+    });
+
+    it('lo borra empezando por la estela, y al acabar el primer ciclo queda apagado, sin escribir durante el respiro', () => {
+      startSweep(container);
+      run(0);
+      run(OUT_MS * 0.6); // el frente de borrado ya pasó la estela
+      expect(Math.max(...stopsOf('vis', 'trail-diag')), 'la estela ya se borró').toBe(0);
+      expect(Math.min(...stopsOf('vis', 'foot')), 'y la punta de la L sigue entera').toBe(1);
+      run(OUT_MS + 20);
+      for (const sg of SEGMENTS) expect(Math.max(...stopsOf('vis', sg.id)), sg.id).toBe(0);
+      for (const sg of SEGMENTS) expect(Math.max(...stopsOf('lit', sg.id)), `luz ${sg.id}`).toBe(0);
+      const spy = vi.spyOn(Element.prototype, 'setAttribute');
+      run(ENTERED_MS - 40);
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('después empieza el bucle de siempre: la aparición arranca desde el logo oculto, en el instante que le toca', () => {
+      startSweep(container);
+      run(0);
+      run(OUT_MS + 20);
+      run(ENTERED_MS + tFront(40 + EDGE)); // el periodo siguiente, igual que si hubiera nacido oculto
+      expect(Math.max(...stopsOf('vis', 'trail-diag')), 'la estela vuelve a aparecer').toBe(1);
+      for (const id of ['trail-foot', 'leg', 'diag-left', 'diag-right', 'stem', 'foot']) expect(Math.max(...stopsOf('vis', id)), `${id} aún oculto`).toBe(0);
+      expect(frames, 'sigue pidiendo cuadros').toHaveLength(1);
+    });
+
+    it('un primer cuadro con un instante apenas anterior al del arranque (el cuadro empieza antes de que se llame) no rompe nada', () => {
+      const spy = vi.spyOn(Element.prototype, 'setAttribute');
+      startSweep(container);
+      run(-12);
+      expect(spy).not.toHaveBeenCalled();
+      for (const sg of SEGMENTS) expect(Math.min(...stopsOf('vis', sg.id)), sg.id).toBe(1);
+    });
+
+    it('con "reducir movimiento" sigue entero y quieto, sin pedir cuadros', () => {
+      reduced = true;
+      startSweep(container)();
+      expect(frames).toHaveLength(0);
+      for (const sg of SEGMENTS) expect(Math.min(...stopsOf('vis', sg.id)), sg.id).toBe(1);
+    });
+  });
+
+  it('un logo que nace oculto, con el primer cuadro apenas anterior al arranque, sigue oculto (no entra en el primer ciclo "ya entero")', () => {
+    startSweep(container);
+    run(-12);
+    for (const sg of SEGMENTS) expect(Math.max(...stopsOf('vis', sg.id)), sg.id).toBe(0);
   });
 
   it('un logo sin barrido no falla ni pide cuadros', () => {

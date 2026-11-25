@@ -8,7 +8,7 @@ import sitemap from '@/app/sitemap';
 import { site } from '@/config/site';
 import { SERVICES } from '@/model/catalog';
 import { DICTIONARIES } from '@/model/i18n';
-import { OG_LOCALE, baseUrl, hreflangPaths, hreflangUrls, jsonLdScript, pageUrl, structuredData } from '@/model/seo';
+import { OG_LOCALE, PAGES, baseUrl, hreflangPaths, hreflangUrls, jsonLdScript, pageUrl, structuredData } from '@/model/seo';
 import { LOCALES } from '@/model/types';
 
 const BASE = 'https://ejemplo.com';
@@ -57,8 +57,8 @@ describe('robots.txt', () => {
 describe('sitemap.xml', () => {
   const entries = sitemap();
 
-  it('lista una página por idioma, ninguna más (la raíz solo redirige)', () => {
-    expect(entries.map((e) => e.url)).toEqual(LOCALES.map((l) => pageUrl(site.url, l)));
+  it('lista el inicio y las tarifas de cada idioma, ninguna más (la raíz solo redirige)', () => {
+    expect(entries.map((e) => e.url)).toEqual(PAGES.flatMap((page) => LOCALES.map((l) => pageUrl(site.url, l, page))));
   });
 
   it('cada entrada lista todas las versiones, incluida ella misma, con x-default', () => {
@@ -142,11 +142,11 @@ describe.skipIf(!existsSync(join(OUT, 'es/index.html')))('build real (carpeta ou
     expect(txt).toMatch(/Sitemap: https?:\/\/\S+\/sitemap\.xml/i);
   });
 
-  it('publica sitemap.xml con las tres páginas y sus alternativas hreflang', () => {
+  it('publica sitemap.xml con las seis páginas (inicio y tarifas) y sus alternativas hreflang', () => {
     const xml = read('sitemap.xml');
     const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
-    expect(locs).toHaveLength(3);
-    expect(locs.map((u) => new URL(u).pathname).sort()).toEqual(['/en/', '/es/', '/pt/']);
+    expect(locs).toHaveLength(6);
+    expect(locs.map((u) => new URL(u).pathname).sort()).toEqual(['/en/', '/en/tarifas/', '/es/', '/es/tarifas/', '/pt/', '/pt/tarifas/']);
     for (const code of ['es', 'pt', 'en', 'x-default']) expect(xml).toContain(`hreflang="${code}"`);
     expect(xml).not.toContain('<lastmod>');
   });
