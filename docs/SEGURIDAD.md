@@ -312,6 +312,8 @@ Salida: `{ "reference": "ML-261120-0042", "submission": 1 }` y nada más (sin id
 
 **Límite por IP:** 10 envíos cada 10 minutos y 30 por día, además de la regla de Cloudflare. La IP sale de `CF-Connecting-IP`, que Cloudflare fija; `X-Forwarded-For` puede venir prellenado por el visitante y se ignora. Eso solo es cierto si el servidor acepta tráfico únicamente del túnel. Detrás de una red móvil con una IP compartida, 30 por día alcanza para el uso previsto, pero es un número a revisar con tráfico real.
 
+**Límite por lead:** hasta 10 envíos por día en un mismo `CRM Lead`, contando el que lo creó (`MAX_SUBMISSIONS_PER_DAY` en `landing_crm/intake/lead.py`). El undécimo se rechaza con 429 y el mismo texto genérico, sin guardar nada; el cliente igual llega a WhatsApp, con la referencia marcada «sin registro». Al día siguiente vuelve a aceptar. Repetir las mismas respuestas (una recarga) no cuenta.
+
 **Errores:** siempre el mismo texto genérico («No se pudo registrar la consulta.»): 417 para un cuerpo inválido, 403 para un token que no verifica, 429 para el límite. El motivo real queda solo en el registro del servidor (`sites/<sitio>/logs/landing_crm.log`).
 
 **Catálogo.** El servidor valida contra `landing_crm/data/catalog.json`, que se genera desde `src/model/catalog.ts` con `node scripts/export-catalog.mjs <salida>`. **Antes de desplegar un front con preguntas nuevas o un `SURVEY_VERSION` nuevo, hay que regenerarlo y hacer `bench migrate`/reiniciar en el servidor**: un front con otra versión es rechazado (el cliente igual llega a WhatsApp por el respaldo, pero la consulta no queda en el CRM).
