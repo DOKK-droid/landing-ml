@@ -12,8 +12,11 @@
 import { REFERENCE_PATTERN } from '@/model/message';
 import { LOCALES } from '@/model/types';
 
-/** v2: cambió el orden de los pasos (actividad → servicios → expectativas → contacto); un `step` guardado en v1 apuntaría a otra sección. */
-export const STORAGE_KEY = 'ml-relevamiento-v3';
+/**
+ * Cambia con cada versión del formulario que cambia las preguntas: v2 cambió el orden de los pasos; v4 cambió los ids y
+ * las condiciones (un cursor o una respuesta de v3 apuntaría a otra pregunta). Un relevamiento a medias de otra versión se descarta.
+ */
+export const STORAGE_KEY = 'ml-relevamiento-v4';
 export const RESUME_ATTR = 'data-resume';
 
 /** Red de seguridad: si la hidratación tarda o falla, la landing se muestra igual pasado este tiempo. */

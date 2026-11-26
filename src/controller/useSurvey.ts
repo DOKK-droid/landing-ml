@@ -38,6 +38,15 @@ export interface TokenSource {
   consume: () => void;
 }
 
+/** Zona horaria del navegador; '' si no está disponible. */
+function browserTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone ?? '';
+  } catch {
+    return '';
+  }
+}
+
 export function useSurvey(locale: Locale) {
   const [state, dispatch] = useReducer(surveyReducer, initialState);
   /** Lo que respondió el servidor si el último envío quedó registrado (no se guarda: es solo para mostrarlo al final). */
@@ -104,7 +113,9 @@ export function useSurvey(locale: Locale) {
     };
   }, [flush]);
 
-  const sections = useMemo(() => buildSections(state.selected), [state.selected]);
+  // El recorrido depende de las respuestas (perfil, servicios combinados…): se rearma al responder. Es barato (unas
+  // decenas de condiciones) y así el cursor, la vista previa y el envío ven siempre las mismas preguntas.
+  const sections = useMemo(() => buildSections(state.selected, state.answers), [state.selected, state.answers]);
   const flow = useMemo(() => buildFlow(sections), [sections]);
   /** Pregunta que se está respondiendo (solo en la fase de preguntas). */
   const current = state.phase === 'survey' ? flow[state.cursor] : undefined;
@@ -192,7 +203,7 @@ export function useSurvey(locale: Locale) {
       if (!token) return unregistered();
       const submission = buildSubmission({
         locale, selected: state.selected, sections, answers: state.answers, origin: state.origin,
-        idempotencyKey: keyFor(), visitKey: visitKey(), turnstile: token, message: state.draft,
+        idempotencyKey: keyFor(), visitKey: visitKey(), turnstile: token, message: state.draft, timezone: browserTimezone(),
       });
       const result = await registerLead(submission, { url: site.crm.url, timeoutMs: site.crm.timeoutMs });
       turnstile.consume(); // el token es de un solo uso, haya salido bien o no

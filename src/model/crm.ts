@@ -24,6 +24,8 @@ export interface LeadSubmission {
   answers: Answers;
   consent: true;
   turnstile: string;
+  /** Zona horaria del navegador (p. ej. «America/Argentina/Buenos_Aires»), para leer bien la franja horaria; '' si no se sabe. */
+  timezone: string;
   /** Señuelo (honeypot): el sitio nunca lo completa; solo lo llenaría un robot que arma el cuerpo a mano. */
   website: '';
   /**
@@ -62,7 +64,10 @@ export function offerSummary(selected: ServiceId[]): string {
   return `${f.hour}/h (${f.block}/${f.minutes} min)`.slice(0, MAX_OFFER_LENGTH);
 }
 
-/** Solo las respuestas de las preguntas del recorrido elegido y con contenido: lo que el servidor guarda. */
+/**
+ * Solo las respuestas de las preguntas del recorrido (las secciones ya resueltas: una pregunta que quedó oculta no está) y
+ * con contenido: lo que el servidor guarda.
+ */
 export function answersOf(sections: Section[], answers: Answers): Answers {
   const out: Answers = {};
   for (const question of sections.flatMap((section) => section.questions)) {
@@ -83,6 +88,12 @@ export interface SubmissionInput {
   turnstile: string;
   /** El mensaje editado a mano (`null` o vacío: no se editó). */
   message?: string | null;
+  timezone?: string;
+}
+
+/** Nombre IANA de zona horaria; cualquier otra cosa se manda vacía (el servidor la vuelve a validar). */
+export function cleanTimezone(value: unknown): string {
+  return typeof value === 'string' && /^[A-Za-z][A-Za-z0-9_+\-/]{0,63}$/.test(value) ? value : '';
 }
 
 export function buildSubmission(input: SubmissionInput): LeadSubmission {
@@ -100,6 +111,7 @@ export function buildSubmission(input: SubmissionInput): LeadSubmission {
     answers: answersOf(input.sections, input.answers),
     consent: true,
     turnstile: input.turnstile,
+    timezone: cleanTimezone(input.timezone),
     website: '',
   };
 }

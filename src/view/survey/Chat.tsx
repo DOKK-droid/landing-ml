@@ -54,7 +54,7 @@ export function Chat({ locale, ctrl, step }: { locale: Locale; ctrl: SurveyContr
         phase={phase}
         isLast={shown.index === flow.length - 1}
         value={state.answers[shown.question.id]}
-        error={Boolean(state.errors[shown.question.id])}
+        error={state.errors[shown.question.id]}
         onAnswer={(value) => actions.setAnswer(shown.question.id, value)}
         onNext={actions.next}
         onBack={actions.back}

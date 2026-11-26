@@ -8,11 +8,11 @@
  *      └──────────────────┘◀─────────────────────────────────────┘
  * ============================================================ */
 import { site } from '@/config/site';
-import { buildSections, isServiceId } from '@/model/catalog';
+import { allQuestions, buildSections, isServiceId } from '@/model/catalog';
 import { buildFlow, firstStepOfSection } from '@/model/flow';
 import { isServerReference, isValidReference } from '@/model/message';
 import { normalizeOrigin, validateQuestion } from '@/model/validation';
-import type { AnswerValue, Answers, Errors, Section, ServiceId } from '@/model/types';
+import type { AnswerValue, Answers, Errors, Question, ServiceId } from '@/model/types';
 
 export type Phase = 'landing' | 'survey' | 'review' | 'sent';
 
@@ -99,8 +99,10 @@ export function surveyReducer(state: SurveyState, action: SurveyAction): SurveyS
       };
 
     case 'NEXT': {
-      // Avanza una pregunta. Una obligatoria sin responder no deja pasar; una opcional sin responder se omite.
-      const flow = buildFlow(buildSections(state.selected));
+      // Avanza una pregunta. Una obligatoria sin responder no deja pasar; una opcional sin responder se omite; un texto con
+      // otra forma (un correo mal escrito) tampoco deja pasar. El recorrido sale de las respuestas: lo que se acaba de
+      // responder puede sumar o quitar preguntas, siempre DESPUÉS de esta (las condiciones solo miran hacia atrás).
+      const flow = buildFlow(buildSections(state.selected, state.answers));
       const step = flow[state.cursor];
       if (!step || state.phase !== 'survey') return state;
       const errors = validateQuestion(step.question, state.answers);
@@ -111,7 +113,7 @@ export function surveyReducer(state: SurveyState, action: SurveyAction): SurveyS
 
     case 'BACK': {
       if (state.phase === 'review') {
-        const last = buildFlow(buildSections(state.selected)).length - 1;
+        const last = buildFlow(buildSections(state.selected, state.answers)).length - 1;
         return { ...state, phase: 'survey', cursor: Math.max(last, 0), errors: {} };
       }
       if (state.cursor === 0) return { ...state, phase: 'landing', errors: {} };
@@ -120,7 +122,7 @@ export function surveyReducer(state: SurveyState, action: SurveyAction): SurveyS
 
     case 'GO_TO_SECTION': {
       // Solo hacia atrás (o hasta la sección actual): saltar adelante dejaría obligatorias sin responder.
-      const flow = buildFlow(buildSections(state.selected));
+      const flow = buildFlow(buildSections(state.selected, state.answers));
       const current = state.phase === 'review' ? Infinity : (flow[state.cursor]?.sectionIndex ?? 0);
       const target = firstStepOfSection(flow, action.section);
       if (target < 0 || action.section > current) return state;
@@ -160,15 +162,15 @@ const MAX_OPTION_ID = 64;
 const MAX_DRAFT = 20_000;
 
 /**
- * Deja solo lo que la interfaz podría haber guardado: respuestas de preguntas que existen en el recorrido elegido,
+ * Deja solo lo que la interfaz podría haber guardado: respuestas de preguntas que pueden estar en el recorrido elegido,
  * del tipo que corresponde y dentro de los límites de largo. Lo demás se descarta, porque `sessionStorage` puede
  * haber sido editado a mano o venir de otra versión, y cada valor termina en pantalla y en el mensaje.
  */
-function sanitizeAnswers(raw: unknown, sections: Section[]): Answers {
+function sanitizeAnswers(raw: unknown, questions: Question[]): Answers {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
   const source = raw as Record<string, unknown>;
   const answers: Answers = {};
-  for (const question of sections.flatMap((section) => section.questions)) {
+  for (const question of questions) {
     const value = source[question.id];
     if (question.type === 'multi') {
       if (!Array.isArray(value)) continue;
@@ -177,7 +179,7 @@ function sanitizeAnswers(raw: unknown, sections: Section[]): Answers {
         .slice(0, question.options?.length ?? 0);
       if (ids.length) answers[question.id] = ids;
     } else if (typeof value === 'string') {
-      const max = question.type === 'textarea' ? site.maxTextLength : question.type === 'text' ? site.maxLineLength : MAX_OPTION_ID;
+      const max = question.type === 'textarea' ? site.maxTextLength : question.type === 'text' ? (question.maxLength ?? site.maxLineLength) : MAX_OPTION_ID;
       answers[question.id] = value.slice(0, max);
     }
   }
@@ -191,8 +193,8 @@ export function sanitize(raw: unknown): SurveyState {
   const selected = Array.isArray(s.selected)
     ? [...new Set(s.selected.filter((id): id is ServiceId => typeof id === 'string' && isServiceId(id)))]
     : [];
-  const sections = buildSections(selected);
-  const total = buildFlow(sections).length;
+  const answers = sanitizeAnswers(s.answers, allQuestions(selected));
+  const total = buildFlow(buildSections(selected, answers)).length;
   const cursor = typeof s.cursor === 'number' && Number.isFinite(s.cursor) ? Math.min(Math.max(Math.trunc(s.cursor), 0), total - 1) : 0;
   const reference = isValidReference(s.reference) ? s.reference : '';
   const stored = typeof s.phase === 'string' && ['landing', 'survey', 'review', 'sent'].includes(s.phase) ? (s.phase as Phase) : 'landing';
@@ -201,7 +203,7 @@ export function sanitize(raw: unknown): SurveyState {
     phase: selected.length && reference ? stored : 'landing',
     selected,
     cursor,
-    answers: sanitizeAnswers(s.answers, sections),
+    answers,
     errors: {},
     reference,
     origin: normalizeOrigin(s.origin),

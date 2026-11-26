@@ -17,11 +17,17 @@ Cómo se verifica el sitio, qué cubren las pruebas automáticas, qué hay que m
 
 | Requisito | Prueba |
 |---|---|
-| La primera sección pregunta solo actividad, personas y sucursales, todas obligatorias | `survey.test.ts` · "el paso 1 pregunta solo…" |
-| Nombre y contacto se piden al final | `survey.test.ts` · "el nombre y los datos de contacto…" |
-| Orden: actividad → servicios → expectativas → contacto | `survey.test.ts`, `qa-flow.test.ts`, `chat-flow.test.ts` |
-| Una pregunta obligatoria sin responder no deja avanzar y marca exactamente esa; una opcional se omite | `qa-flow.test.ts` (63 combinaciones), `survey.test.ts`, `chat-ui.test.ts` |
-| Toda combinación de servicios llega a la revisión, pregunta por pregunta | `qa-flow.test.ts` |
+| El paso 1 pregunta quién consulta y qué necesita; un particular, solo perfil y necesidad | `survey.test.ts` · "el paso 1 pregunta quién consulta…" |
+| Nombre y contacto se piden al final; al menos un medio de contacto (sin correo, teléfono obligatorio) | `survey.test.ts`, `catalog-semantics.test.ts`, `chat-ui.test.ts` · "datos de contacto" |
+| Orden: su consulta → situación actual → servicios → objetivos y reunión → contacto | `survey.test.ts`, `qa-flow.test.ts`, `chat-flow.test.ts` |
+| Ningún dato se pregunta dos veces y a ningún servicio le falta lo crítico (5 perfiles × 63 combinaciones) | `catalog-semantics.test.ts` |
+| Las condiciones solo miran preguntas anteriores; una respuesta de una pregunta oculta no cuenta ni se envía | `catalog-semantics.test.ts`, `survey.test.ts`, `crm.test.ts` |
+| Los pares que se deducían uno del otro ya no conviven (sedes, sistema actual, entregable, migración, alcance, emergencia, decisor) | `catalog-semantics.test.ts` · "pares que se podían deducir…" |
+| Tamaño, rubro y perfil con los valores exactos de Frappe CRM | `catalog-semantics.test.ts` · "alineado con Frappe CRM"; en el servidor, contra la base real |
+| Formato de correo, teléfono y web; sugerencia de correo; opciones exclusivas | `validation.test.ts`, `chat-ui.test.ts` |
+| El servidor resuelve el recorrido igual que el front | `landing_crm/tests/test_payload.py` · paridad con `catalog_cases.json` (330 casos) |
+| Una pregunta obligatoria sin responder no deja avanzar y marca exactamente esa; una opcional se omite | `qa-flow.test.ts` (5 perfiles × 63 combinaciones), `survey.test.ts`, `chat-ui.test.ts` |
+| Toda combinación de servicios y perfil llega a la revisión, pregunta por pregunta | `qa-flow.test.ts` |
 | Una pregunta por vez, con la sección en curso, su avance y la introducción solo en la primera pregunta | `chat-ui.test.ts` · "una pregunta por vez" |
 | Opción única: elige y pasa sola tras una pausa; cambiar de opción durante la pausa avanza una sola vez | `chat-ui.test.ts` · "responder con chips" |
 | Opción múltiple: no avanza sola; se sigue con *Siguiente* | `chat-ui.test.ts` |
@@ -124,7 +130,7 @@ Se verifica a mano (sección 4): **que la CSP no bloquee nada en un navegador re
 | Servicios de interés | Encabezado del mensaje | Saber qué áreas pidió |
 | Oferta vista | Línea *Consulta* | Registrar el precio por bloque de 10 minutos y la oferta que vio el cliente al pedir |
 | Idioma y dominio | Pie del mensaje | Saber qué versión del sitio usó |
-| Versión del formulario (`vN`; hoy `v3`) | Pie del mensaje | Interpretar las respuestas si las preguntas o la oferta cambian |
+| Versión del formulario (`vN`; hoy `v4`) | Pie del mensaje | Interpretar las respuestas si las preguntas o la oferta cambian |
 | Origen (`origen: …`) | Pie del mensaje | Medir qué canal trae consultas (tarjeta, enlace, etc.) |
 
 Cuando cambien las preguntas de forma que afecte la lectura de las respuestas, subir `SURVEY_VERSION`.
@@ -147,7 +153,7 @@ No son defectos hallados en producción sino riesgos previstos al diseñarla; ca
 1. **Doble avance con opción única.** Si el cliente cambia de opción durante la pausa de 320 ms, el temporizador de la pregunta se reinicia: avanza una sola vez, con la última elegida (prueba "cambiar de opción durante la pausa").
 2. **Navegar durante la salida.** Mientras la pregunta anterior se desvanece, la zona de respuesta queda `inert`, para que no se pueda tocar *Siguiente* sobre una pregunta que ya cambió (prueba de la secuencia de transición).
 3. **Saltos adelante.** Con una pregunta por vez, ir a un paso futuro dejaría obligatorias sin responder. La barra de progreso solo permite volver hacia atrás (o a cualquier sección desde la revisión) (`chat-flow.test.ts`).
-4. **Estado guardado de otra versión.** El estado guarda `cursor` (la pregunta en curso) y la clave de almacenamiento pasó a `v3`; `sanitize` ajusta un cursor fuera de rango, no numérico o ausente (`survey.test.ts`).
+4. **Estado guardado de otra versión.** El estado guarda `cursor` (la pregunta en curso) y la clave de almacenamiento pasó a `v4` (las respuestas de v3 tienen otros ids); `sanitize` ajusta un cursor fuera de rango, no numérico o ausente (`survey.test.ts`).
 
 Limitaciones conocidas:
 - El "escribiendo…" suma unos 550 ms por pregunta (salida 170 ms + indicador 380 ms); en un recorrido de 17 preguntas son unos 9 segundos de espera acumulada. Está en `EXIT_MS` y `TYPING_MS` (`Chat.tsx`) por si resulta lento.

@@ -1,13 +1,15 @@
 'use client';
 /* Zona de respuesta de la conversación: muestra la pregunta actual y la forma de contestarla.
  * Una pregunta por vez: opciones como chips (una o varias) o un campo de texto con botón de enviar.
- * Al elegir una opción única se pasa sola a la siguiente; en el resto se avanza con el botón. */
+ * Al elegir una opción única se pasa sola a la siguiente; en el resto se avanza con el botón.
+ * En una de varias, una opción exclusiva («Todavía nada», «No lo sé») desmarca las demás y viceversa. Un correo, un
+ * teléfono o una web con otra forma no dejan pasar, y un error de tipeo conocido en el correo se ofrece corregido. */
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { site } from '@/config/site';
 import type { FlowStep } from '@/model/flow';
 import { DICTIONARIES } from '@/model/i18n';
-import type { AnswerValue, Locale } from '@/model/types';
-import { isAnswered } from '@/model/validation';
+import type { AnswerValue, ErrorKind, Locale, Question } from '@/model/types';
+import { isAnswered, isRequired, suggestEmail } from '@/model/validation';
 import { ArrowIcon, CheckIcon } from '../components/Icons';
 import { hasHover, type SwapPhase } from '../motion';
 
@@ -16,13 +18,24 @@ export const PICK_DELAY_MS = 320;
 /** Alto máximo del campo de texto que crece mientras se escribe. */
 const MAX_TEXTAREA_PX = 150;
 
+/** Las opciones marcadas tras tocar `id` en una pregunta de varias: una exclusiva queda sola; otra la desmarca. */
+export function toggleChoice(question: Question, current: string[], id: string): string[] {
+  if (current.includes(id)) return current.filter((x) => x !== id);
+  const exclusive = new Set(question.options?.filter((opt) => opt.exclusive).map((opt) => opt.id));
+  return exclusive.has(id) ? [id] : [...current.filter((x) => !exclusive.has(x)), id];
+}
+
+/** Teclado del celular según el formato pedido (si la pregunta no trae uno propio). */
+const INPUT_MODE = { email: 'email', phone: 'tel', url: 'url' } as const;
+
 interface ComposerProps {
   locale: Locale;
   step: FlowStep;
   phase: SwapPhase;
   isLast: boolean;
   value: AnswerValue | undefined;
-  error: boolean;
+  /** Por qué no puede avanzar: falta el dato o el texto no tiene la forma pedida. */
+  error?: ErrorKind;
   onAnswer: (value: AnswerValue) => void;
   onNext: () => void;
   onBack: () => void;
@@ -35,7 +48,9 @@ export function Composer({ locale, step, phase, isLast, value, error, onAnswer, 
   const multi = q.type === 'multi';
   const isChoice = q.type === 'single' || multi;
   const answered = isAnswered(q, value);
+  const required = isRequired(q);
   const text = typeof value === 'string' ? value : '';
+  const suggestion = q.format === 'email' ? suggestEmail(text) : null;
 
   const questionRef = useRef<HTMLHeadingElement>(null);
   const inputRef = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
@@ -79,10 +94,7 @@ export function Composer({ locale, step, phase, isLast, value, error, onAnswer, 
       onNext();
     }, PICK_DELAY_MS);
   };
-  const toggle = (id: string) => {
-    const current = Array.isArray(value) ? value : [];
-    onAnswer(current.includes(id) ? current.filter((x) => x !== id) : [...current, id]);
-  };
+  const toggle = (id: string) => onAnswer(toggleChoice(q, Array.isArray(value) ? value : [], id));
 
   if (phase === 'typing') {
     return (
@@ -97,20 +109,22 @@ export function Composer({ locale, step, phase, isLast, value, error, onAnswer, 
   }
 
   // Obligatoria sin responder: no hay "siguiente". Opcional sin responder: el mismo botón es "Omitir".
-  const forward = answered || q.required ? (isLast ? d.review : d.next) : d.skip;
-  const showForward = isChoice && (multi || answered || !q.required);
-  const showSkip = !isChoice && !q.required && !answered;
+  const forward = answered || required ? (isLast ? d.review : d.next) : d.skip;
+  const showForward = isChoice && (multi || answered || !required);
+  const showSkip = !isChoice && !required && !answered;
   const intro = step.position === 0 ? step.section.intro?.[locale] : undefined;
-  const describedBy = error ? `${qid}-err` : undefined;
+  const help = q.help?.[locale];
+  const describedBy = [help && `${qid}-help`, error && `${qid}-err`].filter(Boolean).join(' ') || undefined;
+  const errorText = error === 'format' && q.format ? d.invalid[q.format] : d.fieldRequired;
   const common = {
     id: `f-${q.id}`,
     ref: inputRef,
     value: text,
     placeholder: q.placeholder?.[locale] ?? d.answerPlaceholder,
-    maxLength: q.type === 'textarea' ? site.maxTextLength : site.maxLineLength,
+    maxLength: q.maxLength ?? (q.type === 'textarea' ? site.maxTextLength : site.maxLineLength),
     'aria-labelledby': qid,
     'aria-describedby': describedBy,
-    'aria-invalid': error || undefined,
+    'aria-invalid': error ? true : undefined,
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onAnswer(e.target.value),
   };
 
@@ -123,8 +137,9 @@ export function Composer({ locale, step, phase, isLast, value, error, onAnswer, 
           <span className="avatar" aria-hidden="true">ML</span>
           <div className="bubble bubble--q">
             <h2 id={qid} ref={questionRef} tabIndex={-1} className="bubble__text">{q.label[locale]}</h2>
+            {help && <p className="bubble__help" id={`${qid}-help`}>{help}</p>}
             <p className="bubble__meta">
-              <span className={`tag ${q.required ? 'tag--req' : ''}`}>{q.required ? d.required : d.optional}</span>
+              <span className={`tag ${required ? 'tag--req' : ''}`}>{required ? d.required : d.optional}</span>
               {isChoice && <span>{multi ? d.chooseAny : d.chooseOne}</span>}
             </p>
           </div>
@@ -166,7 +181,15 @@ export function Composer({ locale, step, phase, isLast, value, error, onAnswer, 
                     }}
                   />
                 ) : (
-                  <input {...common} type="text" autoComplete={q.autoComplete} inputMode={q.inputMode} enterKeyHint={isLast ? 'done' : 'next'} />
+                  <input
+                    {...common}
+                    type={q.format === 'phone' ? 'tel' : 'text'}
+                    autoComplete={q.autoComplete}
+                    inputMode={q.inputMode ?? (q.format ? INPUT_MODE[q.format] : undefined)}
+                    spellCheck={q.format ? false : undefined}
+                    autoCapitalize={q.format ? 'off' : undefined}
+                    enterKeyHint={isLast ? 'done' : 'next'}
+                  />
                 )}
                 <button type="submit" className="answer__send" aria-label={isLast ? d.review : d.send}>
                   <ArrowIcon className="icon" />
@@ -181,7 +204,14 @@ export function Composer({ locale, step, phase, isLast, value, error, onAnswer, 
             </>
           )}
 
-          {error && <p className="answer__error" id={`${qid}-err`} role="alert">{d.fieldRequired}</p>}
+          {suggestion && (
+            <p className="answer__suggest">
+              <button type="button" className="link" onClick={() => onAnswer(suggestion)}>
+                {d.suggest} <strong>{suggestion}</strong>?
+              </button>
+            </p>
+          )}
+          {error && <p className="answer__error" id={`${qid}-err`} role="alert">{errorText}</p>}
 
           <div className="answer__nav">
             <button type="button" className="link" onClick={() => { clearTimer(); onBack(); }}>
@@ -189,8 +219,8 @@ export function Composer({ locale, step, phase, isLast, value, error, onAnswer, 
             </button>
             {showSkip && <button type="button" className="link" onClick={go}>{d.skip}</button>}
             {showForward && (
-              <button type="button" className={`btn ${answered || q.required ? 'btn--primary' : 'btn--ghost'} btn--sm`} onClick={go}>
-                {forward} {(answered || q.required) && <ArrowIcon className="icon" />}
+              <button type="button" className={`btn ${answered || required ? 'btn--primary' : 'btn--ghost'} btn--sm`} onClick={go}>
+                {forward} {(answered || required) && <ArrowIcon className="icon" />}
               </button>
             )}
           </div>

@@ -248,12 +248,12 @@ describe('encabezados de vercel.json', () => {
 
 describe('saneamiento del estado guardado en el navegador', () => {
   const REF = 'ML-261120-K7QM';
-  const valid = { phase: 'survey', selected: ['ia'], cursor: 2, reference: REF, answers: { p_rubro: 'Ferretería', a_objetivo: ['x'] }, origin: 'tarjeta', draft: null };
+  const valid = { phase: 'survey', selected: ['ia'], cursor: 2, reference: REF, answers: { p_perfil: 'empresa', p_descripcion: 'Ferretería', a_objetivo: ['x'] }, origin: 'tarjeta', draft: null };
 
   it('conserva un estado legítimo', () => {
     const s = sanitize(valid);
     expect(s).toMatchObject({ phase: 'survey', selected: ['ia'], cursor: 2, reference: REF, origin: 'tarjeta' });
-    expect(s.answers.p_rubro).toBe('Ferretería');
+    expect(s.answers.p_descripcion).toBe('Ferretería');
   });
 
   it('valida el formato de la referencia (lo que genera createReference) y descarta el resto', () => {
@@ -272,19 +272,23 @@ describe('saneamiento del estado guardado en el navegador', () => {
   });
 
   it('descarta respuestas de preguntas que no existen en el recorrido elegido', () => {
-    const s = sanitize({ ...valid, answers: { p_rubro: 'x', __proto__x: 'y', d_problema: 'de otro servicio', inventada: 'z' } });
-    expect(Object.keys(s.answers)).toEqual(['p_rubro']);
+    const s = sanitize({ ...valid, answers: { p_descripcion: 'x', __proto__x: 'y', s_tipo: 'de otro servicio', inventada: 'z', c_motivo_otro: 'tampoco' } });
+    expect(Object.keys(s.answers)).toEqual(['p_descripcion']);
   });
 
   it('descarta valores del tipo equivocado: números, objetos, nulos y listas donde va texto', () => {
-    const s = sanitize({ ...valid, answers: { p_rubro: 42, p_tamano: { a: 1 }, p_sucursales: ['x'], a_objetivo: 'texto', a_tarea: null } });
+    const s = sanitize({ ...valid, answers: { p_descripcion: 42, p_tamano: { a: 1 }, p_industria: ['x'], a_objetivo: 'texto', x_necesidad: null } });
     expect(s.answers).toEqual({});
   });
 
   it('recorta los textos a sus límites y las opciones múltiples a lo que existe', () => {
-    const s = sanitize({ ...valid, answers: { p_rubro: 'a'.repeat(5000), a_tarea: 'b'.repeat(5000), a_objetivo: ['1', '1', 7, 'c'.repeat(500), ...Array(50).fill('z')] } });
-    expect((s.answers.p_rubro as string).length).toBe(site.maxLineLength);
-    expect((s.answers.a_tarea as string).length).toBe(site.maxTextLength);
+    const s = sanitize({
+      ...valid,
+      answers: { p_nombre: 'a'.repeat(5000), p_descripcion: 'd'.repeat(5000), x_necesidad: 'b'.repeat(5000), a_objetivo: ['1', '1', 7, 'c'.repeat(500), ...Array(50).fill('z')] },
+    });
+    expect((s.answers.p_nombre as string).length).toBe(site.maxLineLength);
+    expect((s.answers.p_descripcion as string).length).toBe(160); // tope propio de la pregunta
+    expect((s.answers.x_necesidad as string).length).toBe(site.maxTextLength);
     const ids = s.answers.a_objetivo as string[];
     expect(ids.length).toBeLessThanOrEqual(buildSections(['ia']).flatMap((x) => x.questions).find((q) => q.id === 'a_objetivo')!.options!.length);
     expect(ids.every((id) => typeof id === 'string' && id.length <= 64)).toBe(true);

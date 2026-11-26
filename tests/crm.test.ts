@@ -15,8 +15,11 @@ import { buildCsp, checkHtml, crmOrigin as buildCrmOrigin, hardenHtml, parseCsp,
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const SELECTED = ['ia' as const];
-const SECTIONS = buildSections(SELECTED);
-const ANSWERS = { p_nombre: 'Ana Pérez', p_correo: '', p_org: 'Acme', p_ubicacion: 'Posadas, Argentina', no_existe: 'x' };
+// Un particular: no se le pregunta el nombre de la empresa, así que esa respuesta (que quedó de antes) no viaja.
+const ANSWERS = {
+  p_perfil: 'personal', p_nombre: 'Ana Pérez', p_correo: '', p_org: 'Acme', p_ubicacion: 'Posadas, Argentina', no_existe: 'x',
+};
+const SECTIONS = buildSections(SELECTED, ANSWERS);
 
 afterEach(() => {
   vi.useRealTimers();
@@ -70,21 +73,30 @@ describe('cuerpo que se envía al servidor', () => {
   const submission = buildSubmission({
     locale: 'es', selected: SELECTED, sections: SECTIONS, answers: ANSWERS, origin: 'tarjeta',
     idempotencyKey: '0b8f6a52-6d3e-4f3a-9a53-0c3f5f7d9e11', visitKey: '5d1c2e7a-0a43-4b8e-9f1c-2a6b3c4d5e6f', turnstile: 'tok',
+    timezone: 'America/Argentina/Buenos_Aires',
   });
 
   it('tiene exactamente los campos del contrato', () => {
     expect(Object.keys(submission).sort()).toEqual(
-      ['answers', 'consent', 'form_version', 'idempotency_key', 'locale', 'offer', 'origin', 'services', 'turnstile', 'visit_key', 'website'],
+      ['answers', 'consent', 'form_version', 'idempotency_key', 'locale', 'offer', 'origin', 'services', 'timezone', 'turnstile', 'visit_key', 'website'],
     );
     expect(submission).toMatchObject({
       consent: true, website: '', turnstile: 'tok', locale: 'es', origin: 'tarjeta', services: ['ia'], form_version: SURVEY_VERSION,
-      visit_key: '5d1c2e7a-0a43-4b8e-9f1c-2a6b3c4d5e6f',
+      visit_key: '5d1c2e7a-0a43-4b8e-9f1c-2a6b3c4d5e6f', timezone: 'America/Argentina/Buenos_Aires',
     });
   });
 
-  it('manda solo las respuestas del recorrido y con contenido (el servidor descartaría el resto)', () => {
-    expect(submission.answers).toEqual({ p_nombre: 'Ana Pérez', p_org: 'Acme', p_ubicacion: 'Posadas, Argentina' });
+  it('manda solo las respuestas de las preguntas visibles y con contenido (el servidor descartaría el resto)', () => {
+    expect(submission.answers).toEqual({ p_perfil: 'personal', p_nombre: 'Ana Pérez', p_ubicacion: 'Posadas, Argentina' });
     expect(answersOf(SECTIONS, { p_nombre: '   ' })).toEqual({});
+  });
+
+  it('la zona horaria viaja solo si tiene forma de nombre IANA', () => {
+    const base = { locale: 'es' as const, selected: SELECTED, sections: SECTIONS, answers: ANSWERS, origin: '', idempotencyKey: 'k', visitKey: 'v', turnstile: 't' };
+    expect(buildSubmission({ ...base, timezone: 'Europe/Madrid' }).timezone).toBe('Europe/Madrid');
+    expect(buildSubmission({ ...base, timezone: 'Etc/GMT+3' }).timezone).toBe('Etc/GMT+3');
+    expect(buildSubmission(base).timezone).toBe('');
+    for (const bad of ['<script>', 'a b', '../../etc', 'x'.repeat(80)]) expect(buildSubmission({ ...base, timezone: bad }).timezone, bad).toBe('');
   });
 
   it('la oferta es corta y está dentro del límite del servidor (más largo, rechaza la consulta entera)', () => {

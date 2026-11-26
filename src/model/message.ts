@@ -11,14 +11,14 @@ import { site } from '@/config/site';
 import { SERVICES } from './catalog';
 import { DICTIONARIES } from './i18n';
 import { consultationApplies, offerFigures } from './offer';
-import { isEmpty } from './validation';
+import { isEmpty, isRequired } from './validation';
 import type { Answers, Locale, Question, Section, ServiceId } from './types';
 
 /**
  * Versión del formulario. Viaja en el pie del mensaje para saber con qué preguntas respondió el cliente.
  * Subirla cuando cambian las preguntas de forma que afecte la lectura de las respuestas.
  */
-export const SURVEY_VERSION = 3;
+export const SURVEY_VERSION = 4;
 
 export interface MessageInput {
   locale: Locale;
@@ -81,7 +81,7 @@ export function buildLines(input: MessageInput, options: { pending?: boolean; fo
   sections.forEach((section, index) => {
     const rows = section.questions
       .map((q) => ({ q, value: formatAnswer(q, answers, locale) }))
-      .filter((row) => row.value !== null || (options.pending && (row.q.required || row.q.id === options.focusId)));
+      .filter((row) => row.value !== null || (options.pending && (isRequired(row.q) || row.q.id === options.focusId)));
     if (!rows.length) return;
 
     lines.push({ kind: 'gap' }, { kind: 'section', sectionId: section.id, text: `*${index + 1}. ${section.title[locale]}*` });
@@ -93,7 +93,7 @@ export function buildLines(input: MessageInput, options: { pending?: boolean; fo
         label: q.label[locale].replace(/[¿?]/g, '').trim(),
         value,
         multiline: q.type === 'textarea',
-        optional: !q.required,
+        optional: !isRequired(q),
       });
     }
   });

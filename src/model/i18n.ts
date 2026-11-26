@@ -2,7 +2,7 @@
  * MODELO — Textos de interfaz por idioma.
  * ============================================================ */
 import type { OfferFigures } from './offer';
-import type { Locale } from './types';
+import type { AnswerFormat, Locale } from './types';
 
 export interface Dictionary {
   meta: { title: string; description: string };
@@ -43,6 +43,8 @@ export interface Dictionary {
     required: string; optional: string; fieldRequired: string; chooseOne: string; chooseAny: string; exit: string;
     section: (n: number, total: number) => string; question: (n: number, total: number) => string;
     skip: string; send: string; answerPlaceholder: string; enterHint: string; preparing: string;
+    /** Error de formato de un texto (correo, teléfono, web) y sugerencia ante un error de tipeo en el correo. */
+    invalid: Record<AnswerFormat, string>; suggest: string;
   };
   review: {
     title: string; lead: string; send: string; copy: string; copied: string; edit: string;
@@ -177,6 +179,12 @@ const es: Dictionary = {
     answerPlaceholder: 'Escriba su respuesta…',
     enterHint: 'Enter envía · Mayús+Enter agrega una línea',
     preparing: 'Preparando la siguiente pregunta',
+    invalid: {
+      email: 'Revise el correo: debería verse como nombre@empresa.com.',
+      phone: 'Revise el teléfono: escriba el código de país y el número, por ejemplo +54 9 11 1234 5678.',
+      url: 'Escriba la dirección del sitio (empresa.com) o el usuario de la red social (@empresa).',
+    },
+    suggest: '¿Quiso decir',
   },
   review: {
     title: 'Revise su mensaje',
@@ -331,6 +339,12 @@ const pt: Dictionary = {
     answerPlaceholder: 'Escreva sua resposta…',
     enterHint: 'Enter envia · Shift+Enter nova linha',
     preparing: 'Preparando a próxima pergunta',
+    invalid: {
+      email: 'Revise o e-mail: deveria ser como nome@empresa.com.',
+      phone: 'Revise o telefone: escreva o código do país e o número, por exemplo +55 11 91234 5678.',
+      url: 'Escreva o endereço do site (empresa.com.br) ou o usuário da rede social (@empresa).',
+    },
+    suggest: 'Quis dizer',
   },
   review: {
     title: 'Revise sua mensagem',
@@ -485,6 +499,12 @@ const en: Dictionary = {
     answerPlaceholder: 'Type your answer…',
     enterHint: 'Enter to send · Shift+Enter for a new line',
     preparing: 'Preparing the next question',
+    invalid: {
+      email: 'Check the email: it should look like name@company.com.',
+      phone: 'Check the phone: include the country code and the number, e.g. +1 512 555 0100.',
+      url: 'Enter the website address (company.com) or the social media handle (@company).',
+    },
+    suggest: 'Did you mean',
   },
   review: {
     title: 'Review your message',

@@ -8,36 +8,42 @@ import type { Answers, Locale } from '@/model/types';
 import { criticalProgress } from '@/model/validation';
 import { Preview } from '@/view/survey/Preview';
 
-function render(answers: Answers, locale: Locale = 'es', currentSectionId = 'actividad', currentQuestionId?: string) {
-  const sections = buildSections(['ia']);
+/** Una empresa: el perfil es la primera respuesta y decide qué se pregunta después. */
+const EMPRESA: Answers = { p_perfil: 'empresa' };
+
+function render(extra: Answers, locale: Locale = 'es', currentSectionId = 'consulta', currentQuestionId?: string) {
+  const answers = { ...EMPRESA, ...extra };
+  const sections = buildSections(['ia'], answers);
   const lines = buildLines({ locale, selected: ['ia'], sections, answers, reference: 'ML-261120-TEST' }, { pending: true, focusId: currentQuestionId });
   return renderToStaticMarkup(createElement(Preview, { locale, lines, progress: criticalProgress(sections, answers), currentSectionId, currentQuestionId }));
 }
 
 describe('vista previa', () => {
   it('muestra el avance de datos clave y los pendientes', () => {
-    const html = render({ p_rubro: 'Ferretería' });
+    // IA para una empresa: perfil, rubro, descripción, tamaño, necesidad, qué haría la IA, alcance, plazo, nombre y un
+    // medio de contacto (sin correo, el teléfono).
+    const html = render({ p_descripcion: 'Ferretería' });
     expect(html).toContain('Vista previa del mensaje');
-    expect(html).toContain('Datos clave: 1 de 8');
+    expect(html).toContain('Datos clave: 2 de 10');
     expect(html).toContain('role="progressbar"');
-    expect(html).toContain('aria-valuenow="1"');
-    expect(html).toContain('aria-valuemax="8"');
+    expect(html).toContain('aria-valuenow="2"');
+    expect(html).toContain('aria-valuemax="10"');
     expect(html).toContain('Ferretería');
-    expect((html.match(/class="pv-pending"/g) ?? []).length).toBe(7); // los otros 7 datos críticos
+    expect((html.match(/class="pv-pending"/g) ?? []).length).toBe(8); // los otros 8 datos críticos
   });
 
   it('marca la sección actual y no la de los otros pasos', () => {
-    const html = render({}, 'es', 'actividad');
-    expect(html).toMatch(/data-section="actividad" class="pv-line pv-section is-current"/);
+    const html = render({}, 'es', 'consulta');
+    expect(html).toMatch(/data-section="consulta" class="pv-line pv-section is-current"/);
     expect(html).toMatch(/data-section="svc:ia" class="pv-line pv-section "/);
   });
 
   it('cuando están todos los datos clave lo indica', () => {
     const answers: Answers = {
-      p_rubro: 'x', p_tamano: '1', p_sucursales: '1', a_objetivo: [getService('ia').questions[0].options![0].id], a_tarea: 'x',
-      e_resultado: 'x', e_plazo: 'ya', p_nombre: 'Ana',
+      ...EMPRESA, p_industria: 'comercio', p_descripcion: 'x', p_tamano: '1-10', x_necesidad: 'x',
+      a_objetivo: [getService('ia').questions[0].options![0].id], e_alcance: 'etapa', e_plazo: 'ya', p_nombre: 'Ana', p_correo: 'ana@x.com',
     };
-    const sections = buildSections(['ia']);
+    const sections = buildSections(['ia'], answers);
     expect(criticalProgress(sections, answers).missing).toEqual([]);
     const html = render(answers);
     expect(html).toContain('Datos clave completos');
@@ -46,14 +52,14 @@ describe('vista previa', () => {
   });
 
   it('escapa lo que escribe el cliente: no se inyecta HTML', () => {
-    const html = render({ p_rubro: '<img src=x onerror=alert(1)>', p_nombre: '<script>alert(1)</script>' });
+    const html = render({ p_descripcion: '<img src=x onerror=alert(1)>', p_nombre: '<script>alert(1)</script>' });
     expect(html).not.toContain('<img');
     expect(html).not.toContain('<script');
     expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;');
   });
 
   it('aplica el formato de WhatsApp con elementos, no con HTML en crudo', () => {
-    const html = render({ p_rubro: 'x' });
+    const html = render({ p_descripcion: 'x' });
     expect(html).toContain('<strong>RELEVAMIENTO INICIAL</strong>');
     expect(html).toContain('<em>Enviado desde');
   });
@@ -74,9 +80,9 @@ describe('vista previa', () => {
   });
 
   it('resalta el renglón de la pregunta que se está respondiendo', () => {
-    const html = render({ p_rubro: 'Ferretería' }, 'es', 'actividad', 'p_tamano');
+    const html = render({ p_descripcion: 'Ferretería' }, 'es', 'consulta', 'p_tamano');
     expect(html).toMatch(/data-q="p_tamano" class="pv-line pv-item is-pending is-asking"/);
-    expect(html).toMatch(/data-q="p_rubro" class="pv-line pv-item is-filled is-current"/);
+    expect(html).toMatch(/data-q="p_descripcion" class="pv-line pv-item is-filled is-current"/);
   });
 
   it('una pregunta opcional en curso aparece como "opcional" y no como pendiente', () => {
