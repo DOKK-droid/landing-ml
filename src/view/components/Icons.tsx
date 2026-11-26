@@ -49,12 +49,17 @@ export function ServiceIcon({ name, className }: { name: IconName; className?: s
   );
 }
 
-/** Íconos de las secciones que no son un servicio (su consulta, situación actual, objetivos, contacto). */
+/** Íconos de las secciones que no son un servicio (su consulta, diagnóstico, cómo trabajan hoy, alcance, contacto). */
 const SECTION_PATHS: Record<string, React.ReactNode> = {
   consulta: (
     <>
       <path d="M4 5h16v11H9l-5 4V5z" />
       <path d="M8 9h8M8 12h5" />
+    </>
+  ),
+  diagnostico: (
+    <>
+      <circle cx="11" cy="11" r="6" /><path d="M20 20l-4.5-4.5M8.5 11h5" />
     </>
   ),
   contexto: (

@@ -18,7 +18,7 @@ import type { Answers, Locale, Question, Section, ServiceId } from './types';
  * Versión del formulario. Viaja en el pie del mensaje para saber con qué preguntas respondió el cliente.
  * Subirla cuando cambian las preguntas de forma que afecte la lectura de las respuestas.
  */
-export const SURVEY_VERSION = 4;
+export const SURVEY_VERSION = 5;
 
 export interface MessageInput {
   locale: Locale;
@@ -90,7 +90,8 @@ export function buildLines(input: MessageInput, options: { pending?: boolean; fo
         kind: 'item',
         sectionId: section.id,
         questionId: q.id,
-        label: q.label[locale].replace(/[¿?]/g, '').trim(),
+        // El rótulo corto, si la pregunta lo tiene: el mensaje se lee de un vistazo y el enlace no se pasa de largo.
+        label: (q.short ?? q.label)[locale].replace(/[¿?]/g, '').trim(),
         value,
         multiline: q.type === 'textarea',
         optional: !isRequired(q),

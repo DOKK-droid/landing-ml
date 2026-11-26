@@ -640,6 +640,9 @@ html:has(.selbar:not(.is-leaving)) { scroll-padding-top: calc(var(--header-h) + 
 .chip:active { transform: scale(0.96); }
 .chip--on { border-color: var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); }
 .chip--on .icon { color: var(--c); width: 16px; height: 16px; animation: pop .35s var(--ease); }
+/* Tope de opciones alcanzado: las demás se ven inactivas hasta desmarcar alguna. */
+.chip--blocked { opacity: .45; cursor: not-allowed; }
+.chip--blocked:active { transform: none; }
 .answer.is-error .chip { border-color: color-mix(in srgb, var(--danger) 55%, transparent); }
 
 .answer__row { display: flex; align-items: flex-end; gap: 8px; padding: 6px 6px 6px 16px; border-radius: 26px; border: 1px solid var(--line-2); background: rgba(0, 0, 0, 0.35); transition: border-color .2s ease, box-shadow .2s ease; }

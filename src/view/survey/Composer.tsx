@@ -18,11 +18,22 @@ export const PICK_DELAY_MS = 320;
 /** Alto máximo del campo de texto que crece mientras se escribe. */
 const MAX_TEXTAREA_PX = 150;
 
-/** Las opciones marcadas tras tocar `id` en una pregunta de varias: una exclusiva queda sola; otra la desmarca. */
+/**
+ * Las opciones marcadas tras tocar `id` en una pregunta de varias: una exclusiva queda sola; otra la desmarca. Con el
+ * tope (`maxChoices`) alcanzado, una opción más no se suma: hay que desmarcar otra primero (la interfaz la muestra inactiva).
+ */
 export function toggleChoice(question: Question, current: string[], id: string): string[] {
   if (current.includes(id)) return current.filter((x) => x !== id);
   const exclusive = new Set(question.options?.filter((opt) => opt.exclusive).map((opt) => opt.id));
-  return exclusive.has(id) ? [id] : [...current.filter((x) => !exclusive.has(x)), id];
+  if (exclusive.has(id)) return [id];
+  const kept = current.filter((x) => !exclusive.has(x));
+  return question.maxChoices && kept.length >= question.maxChoices ? current : [...kept, id];
+}
+
+/** ¿Ya no se puede sumar esta opción? (tope alcanzado y no está marcada; una exclusiva siempre se puede elegir). */
+export function choiceBlocked(question: Question, current: string[], id: string): boolean {
+  if (!question.maxChoices || current.includes(id) || question.options?.some((opt) => opt.id === id && opt.exclusive)) return false;
+  return current.filter((x) => !question.options?.some((opt) => opt.id === x && opt.exclusive)).length >= question.maxChoices;
 }
 
 /** Teclado del celular según el formato pedido (si la pregunta no trae uno propio). */
@@ -140,7 +151,7 @@ export function Composer({ locale, step, phase, isLast, value, error, onAnswer, 
             {help && <p className="bubble__help" id={`${qid}-help`}>{help}</p>}
             <p className="bubble__meta">
               <span className={`tag ${required ? 'tag--req' : ''}`}>{required ? d.required : d.optional}</span>
-              {isChoice && <span>{multi ? d.chooseAny : d.chooseOne}</span>}
+              {isChoice && <span>{multi ? (q.maxChoices ? d.chooseUpTo(q.maxChoices) : d.chooseAny) : d.chooseOne}</span>}
             </p>
           </div>
         </div>
@@ -150,12 +161,15 @@ export function Composer({ locale, step, phase, isLast, value, error, onAnswer, 
             <div className="chips" role="group" aria-labelledby={qid} aria-describedby={describedBy}>
               {q.options?.map((opt, i) => {
                 const on = multi ? Array.isArray(value) && value.includes(opt.id) : value === opt.id;
+                // Con el tope alcanzado, las demás quedan inactivas (no `disabled`: siguen enfocables y se leen).
+                const blocked = multi && choiceBlocked(q, Array.isArray(value) ? value : [], opt.id);
                 return (
                   <button
                     key={opt.id}
                     type="button"
-                    className={`chip ${on ? 'chip--on' : ''}`}
+                    className={`chip ${on ? 'chip--on' : ''} ${blocked ? 'chip--blocked' : ''}`}
                     aria-pressed={on}
+                    aria-disabled={blocked || undefined}
                     style={{ '--i': i } as React.CSSProperties}
                     onClick={() => (multi ? toggle(opt.id) : pick(opt.id))}
                   >

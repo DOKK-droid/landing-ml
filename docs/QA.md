@@ -130,7 +130,7 @@ Se verifica a mano (sección 4): **que la CSP no bloquee nada en un navegador re
 | Servicios de interés | Encabezado del mensaje | Saber qué áreas pidió |
 | Oferta vista | Línea *Consulta* | Registrar el precio por bloque de 10 minutos y la oferta que vio el cliente al pedir |
 | Idioma y dominio | Pie del mensaje | Saber qué versión del sitio usó |
-| Versión del formulario (`vN`; hoy `v4`) | Pie del mensaje | Interpretar las respuestas si las preguntas o la oferta cambian |
+| Versión del formulario (`vN`; hoy `v5`) | Pie del mensaje | Interpretar las respuestas si las preguntas o la oferta cambian |
 | Origen (`origen: …`) | Pie del mensaje | Medir qué canal trae consultas (tarjeta, enlace, etc.) |
 
 Cuando cambien las preguntas de forma que afecte la lectura de las respuestas, subir `SURVEY_VERSION`.

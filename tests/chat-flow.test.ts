@@ -29,10 +29,10 @@ describe('flujo de preguntas', () => {
     }
   });
 
-  it('el largo depende del perfil y de los servicios: con los seis, como en v3, aunque cubre más', () => {
-    expect(buildFlow(buildSections(['ia'], EMPRESA)).length).toBe(23);
-    expect(buildFlow(buildSections(['ia'], { p_perfil: 'personal' })).length).toBe(16);
-    expect(buildFlow(buildSections(SERVICES.map((s) => s.id), EMPRESA)).length).toBe(37);
+  it('el largo depende del perfil y de los servicios (con el diagnóstico, una empresa responde más que un particular)', () => {
+    expect(buildFlow(buildSections(['ia'], EMPRESA)).length).toBe(30);
+    expect(buildFlow(buildSections(['ia'], { p_perfil: 'personal' })).length).toBe(17);
+    expect(buildFlow(buildSections(SERVICES.map((s) => s.id), EMPRESA)).length).toBe(47);
     // Una emergencia de un particular: lo justo para atenderla, sin reunión que preparar.
     expect(buildFlow(buildSections(['soporte'], { p_perfil: 'personal', s_tipo: 'emergencia' })).length).toBe(9);
   });
@@ -40,8 +40,9 @@ describe('flujo de preguntas', () => {
   it('encuentra la primera pregunta de cada sección', () => {
     const flow = buildFlow(buildSections(['ia'], EMPRESA));
     expect(firstStepOfSection(flow, 0)).toBe(0);
-    expect(flow[firstStepOfSection(flow, 1)].question.id).toBe('x_herramientas');
-    expect(flow[firstStepOfSection(flow, 2)].question.id).toBe('a_objetivo');
+    expect(flow[firstStepOfSection(flow, 1)].question.id).toBe('x_necesidad');
+    expect(flow[firstStepOfSection(flow, 2)].question.id).toBe('x_herramientas');
+    expect(flow[firstStepOfSection(flow, 3)].question.id).toBe('a_objetivo');
     expect(firstStepOfSection(flow, 99)).toBe(-1);
   });
 

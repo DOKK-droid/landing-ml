@@ -103,7 +103,7 @@ async function startAtText() {
   await pickFirstChip();
 }
 /**
- * En la primera pregunta del servicio, con el paso 1 respondido y la situación actual (opcional para IA) omitida.
+ * En la primera pregunta del servicio, con su consulta y el diagnóstico respondidos y «cómo trabajan hoy» (opcional para IA) omitido.
  * Se retoma ahí en vez de recorrer todo con clics: en una máquina cargada eso solo tarda más que el límite de la prueba.
  * El recorrido completo con clics tiene su propia prueba («recorrido completo por la interfaz»).
  */
@@ -121,7 +121,10 @@ async function mountAt(questionId: string, answers: Answers) {
   await mount();
   await tick(0);
 }
-const EMPRESA: Answers = { p_perfil: 'empresa', p_industria: 'comercio', p_descripcion: 'Ferretería', p_tamano: '1-10', x_necesidad: 'Facturas' };
+const EMPRESA: Answers = {
+  p_perfil: 'empresa', p_industria: 'comercio', p_descripcion: 'Ferretería', p_tamano: '1-10', x_necesidad: 'Facturas',
+  x_impacto: ['tiempo'], x_intentos: 'no',
+};
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
@@ -140,9 +143,11 @@ describe('una pregunta por vez', () => {
   it('muestra la sección en curso, su avance y una sola pregunta', async () => {
     await startSurvey();
     expect(text('.chat__title')).toBe('Su consulta');
-    expect(text('.chat__kicker')).toContain('Sección 1 de 5');
-    expect(text('.chat__kicker')).toContain('Pregunta 1 de 4');
-    expect($$('.chat__dots i')).toHaveLength(4);
+    // Su consulta → qué está pasando → cómo trabajan hoy → IA → alcance y reunión → contacto. Antes de elegir el perfil,
+    // el tamaño no cuenta (depende de él).
+    expect(text('.chat__kicker')).toContain('Sección 1 de 6');
+    expect(text('.chat__kicker')).toContain('Pregunta 1 de 3');
+    expect($$('.chat__dots i')).toHaveLength(3);
     expect($$('.chat__dots i.is-now')).toHaveLength(1);
     expect($$('.bubble--q')).toHaveLength(1);
     expect(question()).toBe('¿Para quién es la consulta?');
@@ -170,7 +175,7 @@ describe('una pregunta por vez', () => {
   it('la ayuda de la pregunta se ve y describe el campo', async () => {
     await startAtText();
     const help = $('.bubble__help')!;
-    expect(help.textContent).toBe('Por ejemplo: «Distribuidora de alimentos para almacenes de zona norte». Lo que necesita resolver se lo preguntamos más adelante.');
+    expect(help.textContent).toBe('Por ejemplo: «Distribuidora de alimentos para almacenes de zona norte». Lo que necesita resolver se lo preguntamos enseguida.');
     expect($('.answer__row input')?.getAttribute('aria-describedby')).toBe(help.id);
   });
 
@@ -191,7 +196,8 @@ describe('una pregunta por vez', () => {
     await tick(PICK_DELAY_MS + 5);
     await settle();
     expect(stageId()).toBe('x_necesidad');
-    expect(text('.chat__kicker')).toContain('Pregunta 2 de 2');
+    expect(text('.chat__kicker')).toContain('Sección 2 de');
+    expect(text('.chat__kicker')).toContain('Pregunta 1 de 1');
   });
 });
 
@@ -217,7 +223,7 @@ describe('responder con texto', () => {
     await click($('.answer__send'));
     await settle();
     expect(stageId()).toBe('p_tamano');
-    expect(text('.chat__kicker')).toContain('Pregunta 4 de 5');
+    expect(text('.chat__kicker')).toContain('Pregunta 4 de 4');
     expect($$('.chat__dots i.is-done')).toHaveLength(3);
     expect($('[data-q="p_tamano"]')?.classList.contains('is-asking')).toBe(true);
   });
@@ -298,6 +304,23 @@ describe('responder con chips', () => {
     expect($$('.chip--on').map((c) => c.textContent?.trim())).toEqual(['No lo sé']);
     await click(chip('Papel o cuadernos'));
     expect($$('.chip--on').map((c) => c.textContent?.trim())).toEqual(['Papel o cuadernos']);
+  });
+
+  it('con tope de opciones («Elija hasta 3»), las demás quedan inactivas hasta desmarcar una', async () => {
+    const { x_impacto: _, ...before } = EMPRESA;
+    await mountAt('x_impacto', before);
+    expect(text('.bubble__meta')).toContain('Elija hasta 3.');
+    const chip = (start: string) => $$('.chip').find((c) => c.textContent?.trim().startsWith(start))!;
+    for (const label of ['Se pierden horas', 'Hay errores', 'Falta información']) await click(chip(label));
+    expect($$('.chip--on')).toHaveLength(3);
+    expect(chip('Se pierden ventas').getAttribute('aria-disabled')).toBe('true');
+    await click(chip('Se pierden ventas'));
+    expect($$('.chip--on')).toHaveLength(3); // no se suma
+    expect(chip('Todavía no nos afecta').getAttribute('aria-disabled')).toBeNull(); // la exclusiva siempre se puede elegir
+    await click(chip('Hay errores'));
+    expect(chip('Se pierden ventas').getAttribute('aria-disabled')).toBeNull();
+    await click(chip('Se pierden ventas'));
+    expect($$('.chip--on')).toHaveLength(3);
   });
 
   it('una obligatoria múltiple sin marcar no avanza y avisa', async () => {
@@ -397,7 +420,7 @@ describe('omitir y volver', () => {
     expect(text('.chat__title')).toBe('Inteligencia Artificial');
     const pills = $$('.progress__item button') as HTMLButtonElement[];
     expect(pills[0].disabled).toBe(false);
-    expect(pills[3].disabled).toBe(true); // «Objetivos y reunión»: todavía no
+    expect(pills[4].disabled).toBe(true); // «Alcance y reunión»: todavía no
     await click(pills[0]);
     await settle();
     expect(stageId()).toBe('p_perfil');
@@ -480,7 +503,7 @@ describe('la transición entre preguntas (con animaciones)', () => {
     await tick(PICK_DELAY_MS + 5);
 
     // 1) La banda y la vista previa ya van por la pregunta 2; la zona de respuesta todavía muestra la 1, saliendo.
-    expect(text('.chat__kicker')).toContain('Pregunta 2 de 5');
+    expect(text('.chat__kicker')).toContain('Pregunta 2 de 4');
     expect(stageId()).toBe('p_perfil');
     expect($('.composer__stage')?.hasAttribute('inert')).toBe(true);
 
@@ -568,7 +591,7 @@ describe('foco y teclado', () => {
     stubBrowser({ reduced: true, hover: true });
     await reachTextarea();
     const area = $<HTMLTextAreaElement>('textarea')!;
-    expect(area.getAttribute('maxlength')).toBe('600');
+    expect(area.getAttribute('maxlength')).toBe('500'); // el tope propio de la pregunta
     await typeInto(area, 'Cargar facturas');
 
     await key(area, 'Enter', { shiftKey: true });
@@ -577,7 +600,7 @@ describe('foco y teclado', () => {
 
     await key(area, 'Enter');
     await settle();
-    expect(stageId()).toBe('x_herramientas');
+    expect(stageId()).toBe('x_impacto'); // la siguiente del diagnóstico
   });
 
   it('en táctil Enter no envía (agrega una línea)', async () => {

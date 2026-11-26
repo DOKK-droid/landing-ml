@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { surveyReducer, initialState, sanitize, type SurveyState } from '@/controller/surveyReducer';
-import { allQuestions, buildSections, CONTACT_SECTION, CONTEXT_SECTION, INQUIRY_SECTION, SECTIONS_AFTER_SERVICES, SECTIONS_BEFORE_SERVICES, SERVICES } from '@/model/catalog';
+import { allQuestions, buildSections, CONTACT_SECTION, CONTEXT_SECTION, DIAGNOSIS_SECTION, INQUIRY_SECTION, SECTIONS_AFTER_SERVICES, SECTIONS_BEFORE_SERVICES, SERVICES } from '@/model/catalog';
 import { buildFlow } from '@/model/flow';
 import { buildMessage, buildWhatsAppUrl, createReference } from '@/model/message';
 import { LOCALES, type Answers } from '@/model/types';
@@ -34,21 +34,30 @@ describe('catálogo', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('arma su consulta → situación actual → servicios en orden de catálogo → objetivos → contacto', () => {
+  it('arma su consulta → qué está pasando → cómo trabajan hoy → servicios en orden de catálogo → alcance → contacto', () => {
     const ids = buildSections(['soporte', 'consultoria'], { p_perfil: 'empresa' }).map((s) => s.id);
-    expect(ids).toEqual(['consulta', 'contexto', 'svc:consultoria', 'svc:soporte', 'cierre', 'contacto']);
+    expect(ids).toEqual(['consulta', 'diagnostico', 'contexto', 'svc:consultoria', 'svc:soporte', 'cierre', 'contacto']);
   });
 
-  it('el paso 1 pregunta quién consulta y qué necesita; para un particular, solo eso', () => {
-    expect(INQUIRY_SECTION.questions.map((q) => q.id)).toEqual(['p_perfil', 'p_industria', 'p_descripcion', 'p_tamano', 'x_necesidad']);
-    const personal = buildSections(['ia'], { p_perfil: 'personal' })[0].questions.map((q) => q.id);
-    expect(personal).toEqual(['p_perfil', 'x_necesidad']);
+  it('el paso 1 pregunta quién consulta; para un particular, solo eso', () => {
+    expect(INQUIRY_SECTION.questions.map((q) => q.id)).toEqual(['p_perfil', 'p_industria', 'p_descripcion', 'p_tamano']);
+    const personal = buildSections(['ia'], { p_perfil: 'personal' }).map((s) => [s.id, s.questions.map((q) => q.id)]);
+    expect(personal.slice(0, 2)).toEqual([['consulta', ['p_perfil']], ['diagnostico', ['x_necesidad']]]);
   });
 
-  it('lo compartido entre servicios vive en «Situación actual» y nunca en un servicio', () => {
-    const shared = CONTEXT_SECTION.questions.map((q) => q.id);
+  it('el diagnóstico va antes que todo lo demás: situación, impacto, fortalezas, áreas, intentos y objetivos', () => {
+    expect(DIAGNOSIS_SECTION.questions.map((q) => q.id)).toEqual([
+      'x_necesidad', 'x_impacto', 'x_impacto_otro', 'x_avance', 'x_fortalezas', 'x_fortalezas_otro', 'x_areas',
+      'x_intentos', 'x_intentos_falla', 'x_intentos_falla_otro', 'x_objetivos',
+    ]);
+  });
+
+  it('lo compartido entre servicios vive en las secciones comunes y nunca en un servicio', () => {
+    const shared = [...DIAGNOSIS_SECTION.questions, ...CONTEXT_SECTION.questions].map((q) => q.id);
     for (const svc of SERVICES) for (const q of svc.questions) expect(shared, `${svc.id}.${q.id}`).not.toContain(q.id);
-    expect(shared).toEqual(['x_herramientas', 'x_sistema_actual', 'x_areas', 'x_integraciones', 'x_integraciones_otro', 'x_usuarios_int', 'x_usuarios_ext', 'x_sedes', 'x_equipos']);
+    expect(CONTEXT_SECTION.questions.map((q) => q.id)).toEqual([
+      'x_herramientas', 'x_sistema_actual', 'x_integraciones', 'x_integraciones_otro', 'x_usuarios_int', 'x_usuarios_ext', 'x_sedes', 'x_equipos', 'x_responsable',
+    ]);
   });
 
   it('el nombre y los datos de contacto se piden al final', () => {
@@ -129,8 +138,8 @@ describe('máquina de estados', () => {
 describe('mensaje de WhatsApp', () => {
   const answers: Answers = {
     p_perfil: 'empresa', p_industria: 'alimentos', p_descripcion: 'Distribuidora de alimentos', p_tamano: '11-50',
-    x_necesidad: 'Planillas por sucursal', x_areas: ['ventas', 'stock'], x_sedes: '2-3',
-    e_objetivos: 'Cerrar el mes en un día', e_plazo: 'semanas', e_horario: ['manana', 'tarde'], p_nombre: 'Ana Pérez',
+    x_necesidad: 'Planillas por sucursal', x_impacto: ['tiempo', 'errores'], x_areas: ['ventas', 'stock'], x_sedes: '2-3',
+    x_objetivos: 'Cerrar el mes en un día', e_plazo: 'semanas', e_horario: ['manana', 'tarde'], p_nombre: 'Ana Pérez',
   };
   const sections = buildSections(['gestion'], answers);
 
@@ -139,11 +148,14 @@ describe('mensaje de WhatsApp', () => {
     expect(msg).toContain('ML-261118-ABCD');
     expect(msg).toContain('*Servicios de interés:* Gestión & Integraciones');
     expect(msg).toContain('• Para quién es la consulta: Una empresa o comercio en marcha');
-    expect(msg).toContain('• Qué áreas de su trabajo tendría que cubrir el sistema: Ventas y presupuestos, Stock e inventario');
+    // Las preguntas largas van con su rótulo corto: el mensaje se lee de un vistazo.
+    expect(msg).toContain('• Áreas: Ventas y presupuestos, Stock e inventario');
+    expect(msg).toContain('• Impacto: Se pierden horas en tareas a mano o repetidas, Hay errores, olvidos o datos que no coinciden');
     expect(msg).toContain('• Cuántas personas trabajan en la empresa: 11 a 50');
-    expect(msg).toContain('• Desde cuántos lugares trabajan: 2 o 3');
-    expect(msg).toContain('Mañana, Tarde');
-    expect(msg).toContain('ejemplo.dev · ES · v4');
+    expect(msg).toContain('• Lugares de trabajo: 2 o 3');
+    expect(msg).toContain('• Horario: Mañana, Tarde');
+    expect(msg).toContain('*2. Qué está pasando*');
+    expect(msg).toContain('ejemplo.dev · ES · v5');
     expect(msg).not.toContain('Nombre de la empresa'); // vacío → se omite
   });
 
@@ -151,7 +163,7 @@ describe('mensaje de WhatsApp', () => {
     const project = { ...answers, p_perfil: 'proyecto' };
     const msg = buildMessage({ locale: 'es', selected: ['gestion'], sections: buildSections(['gestion'], project), answers: project, reference: 'R' });
     expect(msg).toContain('• Cuántas personas participan del proyecto: 11 a 50');
-    expect(msg).toContain('• Hasta dónde quiere llevar el proyecto en los próximos 6 a 12 meses:');
+    expect(msg).toContain('• Objetivos a 6-12 meses:');
   });
 
   it('saluda con el nombre cuando ya se cargó', () => {

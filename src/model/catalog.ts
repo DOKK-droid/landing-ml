@@ -1,13 +1,18 @@
 /* ============================================================
- * MODELO — Catálogo de servicios y preguntas del relevamiento (v4).
+ * MODELO — Catálogo de servicios y preguntas del relevamiento (v5).
  * Agregar o editar un servicio/pregunta = editar este archivo. Lenguaje de stakeholder: sin tecnicismos.
  *
  * Cómo está pensado (detalle y matriz en docs/RELEVAMIENTO.md):
- *   · Un concepto, un id, un lugar. Lo que necesitan dos servicios o más está en «Situación actual» (`CONTEXT_SECTION`),
- *     antes de los servicios, y dice para qué servicios se pregunta y para cuáles es obligatorio (`shared`). Cada servicio
- *     solo trae lo propio: así nada se pregunta dos veces, aunque se elijan varios servicios.
+ *   · Es un diagnóstico, no un pedido técnico. El cliente consulta porque no sabe qué solución necesita: se le pregunta
+ *     lo que sí sabe (qué pasa, cómo lo afecta, qué funciona, qué intentó, qué quiere lograr, con qué cuenta) y la
+ *     solución la propone el consultor. Nada de «¿qué red necesita?» ni «¿qué funciones técnicas?».
+ *   · Orden: quién consulta → qué está pasando (`DIAGNOSIS_SECTION`) → cómo trabajan hoy (`CONTEXT_SECTION`) → lo propio
+ *     de cada servicio → alcance y viabilidad → contacto.
+ *   · Un concepto, un id, un lugar. Lo que necesitan dos servicios o más está en las secciones comunes y dice para qué
+ *     servicios se pregunta y para cuáles es obligatorio (`shared`). Nada se pregunta dos veces ni se deduce de otra respuesta.
  *   · Sirve para cualquier perfil (empresa, organización, independiente, proyecto, uso personal): la primera pregunta es
  *     `p_perfil` y las demás cambian de texto (`variants`) o no se hacen (`showIf`) según la respuesta.
+ *   · Las preguntas de diagnóstico piden lo que MÁS pesa (`maxChoices`): obliga a priorizar y deja un mensaje legible.
  *   · Las opciones que van a un campo de Frappe CRM llevan su valor exacto en `crm` (tamaño, rubro, perfil).
  *   · Una condición solo mira preguntas anteriores; `buildSections` resuelve todo en orden.
  * ============================================================ */
@@ -21,6 +26,7 @@ const OTHER = o('otro', 'Otro', 'Outro', 'Other');
 const DONT_KNOW = o('nose', 'No lo sé', 'Não sei', "I don't know");
 /** «No lo sé» en una pregunta de varias respuestas: no se combina con otras. */
 const DONT_KNOW_ALONE: Option = { ...DONT_KNOW, exclusive: true };
+const SOMETHING_ELSE = t('Otra cosa: ¿cuál?', 'Outra coisa: qual?', 'Something else: what is it?');
 
 /* ---------------------------- Condiciones de uso frecuente ---------------------------- */
 
@@ -28,7 +34,11 @@ export const PROFILE_QUESTION = 'p_perfil';
 const is = (answer: string, ...values: string[]): Condition => ({ answer, in: values });
 const profileIs = (...profiles: string[]): Condition => is(PROFILE_QUESTION, ...profiles);
 const NOT_PERSONAL: Condition = { not: profileIs('personal') };
+/** Algo que ya funciona: empresa, organización o independiente (un proyecto nuevo todavía no opera). */
+const OPERATING: Condition = profileIs('empresa', 'organizacion', 'independiente');
 const ONLY_SUPPORT: Condition = { onlyServices: ['soporte'] };
+/** Hay algo que diagnosticar: no es solo un pedido de soporte técnico (eso se resuelve con sus propias preguntas). */
+const DIAGNOSIS: Condition = { not: ONLY_SUPPORT };
 /** Solo eligió Soporte y es una emergencia: no hay reunión que preparar, se atiende por WhatsApp. */
 const SUPPORT_EMERGENCY_ONLY: Condition = { all: [ONLY_SUPPORT, is('s_tipo', 'emergencia')] };
 
@@ -92,45 +102,30 @@ export const SERVICES: Service[] = [
       t('Plan de automatización por prioridades', 'Plano de automação por prioridades', 'Prioritized automation plan'),
     ],
     needs: t(
-      'Para preparar la reunión es útil conocer qué consulta o proyecto tiene en mente, cómo se resuelve hoy y qué decisión debe tomar.',
-      'Para preparar a reunião, ajuda saber que consulta ou projeto você tem em mente, como isso é resolvido hoje e que decisão precisa ser tomada.',
-      'To prepare the meeting, it helps to know what question or project you have in mind, how it is handled today and what decision you need to make.',
+      'Para preparar la reunión es útil conocer qué está pasando, cómo lo afecta y qué espera llevarse de la consultoría. No hace falta saber de tecnología.',
+      'Para preparar a reunião, ajuda saber o que está acontecendo, como isso afeta você e o que espera levar da consultoria. Não é preciso entender de tecnologia.',
+      'To prepare the meeting, it helps to know what is going on, how it affects you and what you hope to get from the consultation. No technical knowledge needed.',
     ),
     stepIntro: t(
-      'Para preparar la reunión: por qué consulta y qué espera obtener.',
-      'Para preparar a reunião: por que está consultando e o que espera obter.',
-      'To prepare the meeting: why you are reaching out and what you hope to get.',
+      'Para preparar la reunión: qué espera llevarse.',
+      'Para preparar a reunião: o que espera levar.',
+      'To prepare the meeting: what you hope to get out of it.',
     ),
     questions: [
       ...withOther(
         {
-          id: 'c_motivo', type: 'multi', required: true,
-          label: t('¿Qué lo lleva a consultar?', 'O que o leva a consultar?', 'What brings you here?'),
-          options: [
-            o('tiempo', 'Se pierde tiempo o dinero en tareas repetitivas', 'Perde-se tempo ou dinheiro em tarefas repetitivas', 'Time or money is lost on repetitive tasks'),
-            o('info', 'Falta información clara para decidir', 'Faltam informações claras para decidir', 'There is no clear information to decide'),
-            o('sistemas', 'Las herramientas actuales ya no alcanzan', 'As ferramentas atuais já não são suficientes', 'Current tools are no longer enough'),
-            o('ordenar', 'Hay que ordenar procesos o la forma de trabajar', 'É preciso organizar processos ou a forma de trabalhar', 'Processes or ways of working need organizing'),
-            o('crecer', 'Estamos creciendo y queremos prepararnos', 'Estamos crescendo e queremos nos preparar', "We're growing and want to be ready"),
-            o('idea', 'Tengo una idea o un proyecto y quiero una opinión técnica', 'Tenho uma ideia ou um projeto e quero uma opinião técnica', 'I have an idea or a project and want a technical opinion'),
-            o('duda', 'Tengo una duda técnica puntual (sistemas, integraciones o IA)', 'Tenho uma dúvida técnica pontual (sistemas, integrações ou IA)', 'I have a specific technical question (systems, integrations or AI)'),
-            OTHER,
-          ],
-        },
-        t('Otro motivo: ¿cuál?', 'Outro motivo: qual?', 'Other reason: what is it?'),
-      ),
-      ...withOther(
-        {
-          // Con solo una duda puntual, lo que se lleva es la respuesta: preguntarlo sería pedir dos veces lo mismo.
+          // El motivo ya lo contó en el diagnóstico (`x_necesidad`, `x_impacto`): acá solo qué resultado espera.
           id: 'c_entregable', type: 'multi', required: true,
-          showIf: { not: { answer: 'c_motivo', only: ['duda'] } },
-          label: t('¿Qué le gustaría llevarse de la consultoría?', 'O que gostaria de obter da consultoria?', 'What would you like to get out of the consultation?'),
+          short: t('Qué espera llevarse', 'O que espera levar', 'Expected outcome'),
+          label: t('¿Qué le gustaría llevarse de la consultoría?', 'O que gostaria de levar da consultoria?', 'What would you like to get out of the consultation?'),
           options: [
-            o('viabilidad', 'Saber si es viable y si conviene', 'Saber se é viável e se vale a pena', 'Whether it is feasible and worth it'),
+            o('diagnostico', 'Entender qué está fallando y por qué', 'Entender o que está falhando e por quê', "Understand what's going wrong and why"),
+            o('viabilidad', 'Saber si lo que tengo en mente es viable y conviene', 'Saber se o que tenho em mente é viável e vale a pena', 'Find out whether what I have in mind is feasible and worth it'),
             o('costos', 'Una estimación de costos y plazos', 'Uma estimativa de custos e prazos', 'An estimate of cost and timeline'),
-            o('tecnologia', 'Qué tecnología o herramientas conviene usar', 'Que tecnologia ou ferramentas usar', 'Which technology or tools to use'),
+            o('recomendacion', 'Una recomendación de qué herramientas o tecnología usar', 'Uma recomendação de quais ferramentas ou tecnologia usar', 'A recommendation on which tools or technology to use'),
             o('plan', 'Un plan con prioridades: por dónde empezar', 'Um plano com prioridades: por onde começar', 'A prioritized plan: where to start'),
-            o('revisar', 'Revisar una propuesta o un sistema que ya tengo', 'Revisar uma proposta ou um sistema que já tenho', 'A review of a proposal or system I already have'),
+            o('revisar', 'Una segunda opinión sobre una propuesta o un sistema', 'Uma segunda opinião sobre uma proposta ou um sistema', 'A second opinion on a proposal or a system'),
+            o('duda', 'La respuesta a una duda puntual', 'A resposta a uma dúvida pontual', 'An answer to a specific question'),
             OTHER,
           ],
         },
@@ -156,32 +151,56 @@ export const SERVICES: Service[] = [
       t('Entregas por etapas validadas por su equipo', 'Entregas por etapas validadas pela sua equipe', 'Staged deliveries validated by your team'),
     ],
     needs: t(
-      'Es útil conocer qué problema debe resolver el sistema, quién lo utilizará y qué funciones son indispensables.',
-      'Ajuda saber que problema o sistema deve resolver, quem vai usá-lo e o que ele precisa fazer obrigatoriamente.',
-      'It helps to know what problem the system must solve, who will use it and what it absolutely has to do.',
+      'Es útil conocer qué problema debe resolver, quién lo usaría y qué tan definida está la idea. Si es solo una idea, la ordenamos juntos.',
+      'Ajuda saber que problema deve resolver, quem o usaria e quão definida está a ideia. Se é só uma ideia, organizamos juntos.',
+      'It helps to know what problem it must solve, who would use it and how defined the idea is. If it is only an idea, we shape it together.',
     ),
     stepIntro: t(
-      'Sobre el sistema que necesita: qué tiene que hacer y desde dónde se usaría.',
-      'Sobre o sistema que você precisa: o que ele deve fazer e de onde seria usado.',
-      'About the system you need: what it must do and where it would be used.',
+      'Sobre lo que imagina: qué tan definido está y qué tendría que poder hacer la gente. Sin tecnicismos.',
+      'Sobre o que você imagina: quão definido está e o que as pessoas deveriam poder fazer. Sem termos técnicos.',
+      'About what you have in mind: how defined it is and what people should be able to do. No jargon.',
     ),
     questions: [
+      {
+        // Madurez de la idea: define si la primera etapa es darle forma o construir. Cualquier respuesta es válida.
+        id: 'd_definicion', type: 'single', required: true,
+        short: t('Definición', 'Definição', 'How defined'),
+        label: t('¿Qué tan definido está lo que necesita?', 'Quão definido está o que você precisa?', 'How clearly defined is what you need?'),
+        help: t(
+          'Cualquier punto de partida sirve: si es una idea, la ordenamos juntos.',
+          'Qualquer ponto de partida serve: se é uma ideia, organizamos juntos.',
+          'Any starting point works: if it is an idea, we shape it together.',
+        ),
+        options: [
+          o('idea', 'Es una idea: necesito ayuda para darle forma', 'É uma ideia: preciso de ajuda para dar forma', 'It is an idea: I need help shaping it'),
+          o('claro', 'Sé lo que tiene que hacer, falta el detalle', 'Sei o que precisa fazer, falta o detalhe', 'I know what it must do; the details are missing'),
+          o('definido', 'Está definido: hay documentos, bocetos o ejemplos', 'Está definido: há documentos, esboços ou exemplos', 'It is defined: there are documents, sketches or examples'),
+        ],
+      },
       ...withOther(
         {
-          // Sin pagos ni avisos por WhatsApp (son `x_integraciones`) ni turnos (es `x_areas`): cada cosa se pregunta una vez.
-          id: 'd_funciones', type: 'multi',
-          label: t('¿Qué funciones necesita sí o sí?', 'Quais funções precisa obrigatoriamente?', 'Which features does it absolutely need?'),
+          // Lo que la gente HACE, no funciones técnicas. Las áreas del negocio son `x_areas`; los datos que se cargan dos
+          // veces, `x_integraciones`.
+          id: 'd_funciones', type: 'multi', maxChoices: 3,
+          short: t('Imprescindible', 'Imprescindível', 'Must do'),
+          label: t('¿Qué tendría que poder hacer la gente con el sistema?', 'O que as pessoas deveriam poder fazer com o sistema?', 'What should people be able to do with the system?'),
+          help: t(
+            'Las imprescindibles, pensando en el día a día y no en la tecnología.',
+            'As imprescindíveis, pensando no dia a dia e não na tecnologia.',
+            'The essential ones, thinking of the day to day rather than the technology.',
+          ),
           options: [
-            o('usuarios', 'Usuarios con distintos permisos', 'Usuários com permissões diferentes', 'Users with different permissions'),
-            o('reportes', 'Reportes y tableros', 'Relatórios e painéis', 'Reports and dashboards'),
-            o('archivos', 'Carga de archivos, fotos o documentos', 'Envio de arquivos, fotos ou documentos', 'Uploading files, photos or documents'),
-            o('aprobaciones', 'Aprobaciones o firmas', 'Aprovações ou assinaturas', 'Approvals or signatures'),
-            o('idiomas', 'Varios idiomas o monedas', 'Vários idiomas ou moedas', 'Multiple languages or currencies'),
-            o('mapas', 'Mapas o ubicación', 'Mapas ou localização', 'Maps or location'),
+            o('registrar', 'Registrar pedidos, ventas o trabajos', 'Registrar pedidos, vendas ou serviços', 'Record orders, sales or jobs'),
+            o('seguimiento', 'Ver en el momento cómo va algo (pedidos, stock, avance)', 'Ver na hora como algo está (pedidos, estoque, andamento)', 'See how things stand right now (orders, stock, progress)'),
+            o('avisos', 'Recibir avisos cuando pasa algo importante', 'Receber avisos quando algo importante acontece', 'Get alerts when something important happens'),
+            o('reportes', 'Sacar números e informes para decidir', 'Tirar números e relatórios para decidir', 'Get figures and reports to make decisions'),
+            o('permisos', 'Que cada persona vea solo lo que le corresponde', 'Que cada pessoa veja só o que lhe cabe', 'Each person sees only what concerns them'),
+            o('archivos', 'Subir fotos, archivos o firmas', 'Enviar fotos, arquivos ou assinaturas', 'Upload photos, files or signatures'),
+            o('cobrar', 'Cobrar online', 'Cobrar online', 'Take payments online'),
             OTHER,
           ],
         },
-        t('Otra función: ¿cuál?', 'Outra função: qual?', 'Other feature: what is it?'),
+        SOMETHING_ELSE,
       ),
       {
         id: 'd_dispositivos', type: 'multi', required: true,
@@ -192,6 +211,18 @@ export const SERVICES: Service[] = [
           o('tablet', 'Tablet', 'Tablet', 'Tablet'),
           o('offline', 'También donde no hay internet', 'Também onde não há internet', 'Also where there is no internet'),
         ],
+      },
+      {
+        // Una referencia conocida explica una idea mejor que una lista de funciones.
+        id: 'd_referencia', type: 'text', maxLength: 100, autoComplete: 'off',
+        short: t('Algo parecido', 'Algo parecido', 'Something similar'),
+        label: t('¿Conoce alguna aplicación o sistema parecido a lo que imagina?', 'Conhece algum aplicativo ou sistema parecido com o que imagina?', 'Do you know any app or system similar to what you have in mind?'),
+        help: t(
+          'Nos ayuda a entender la idea. Por ejemplo: «como la app de un banco, pero para pedir turnos».',
+          'Ajuda a entender a ideia. Por exemplo: «como o app de um banco, mas para agendar horários».',
+          'It helps us understand the idea. For example: "like a banking app, but for booking appointments".',
+        ),
+        placeholder: t('Nombre o descripción', 'Nome ou descrição', 'Name or description'),
       },
     ],
   },
@@ -213,29 +244,47 @@ export const SERVICES: Service[] = [
       t('Migración de la información y capacitación', 'Migração das informações e treinamento', 'Data migration and training'),
     ],
     needs: t(
-      'Es útil conocer qué áreas se desea ordenar, cómo se gestionan hoy y qué herramientas deben seguir en funcionamiento.',
-      'Ajuda saber quais áreas quer organizar, como são gerenciadas hoje e quais ferramentas precisam continuar funcionando.',
-      'It helps to know which areas you want to organize, how they are handled today and which tools must keep working.',
+      'Es útil conocer qué áreas se desea ordenar, cómo se trabaja hoy y qué información ya tienen registrada.',
+      'Ajuda saber quais áreas quer organizar, como trabalham hoje e que informações já têm registradas.',
+      'It helps to know which areas you want to organize, how you work today and what information you already have on record.',
     ),
     stepIntro: t(
-      'Sobre la plataforma de gestión: qué información de hoy habría que pasar al sistema nuevo.',
-      'Sobre a plataforma de gestão: que informações de hoje precisariam ir para o sistema novo.',
-      'About the management platform: which of your current information would move to the new system.',
+      'Sobre la información que ya tienen: qué hay registrado y qué tan confiable es.',
+      'Sobre as informações que vocês já têm: o que está registrado e quão confiável é.',
+      'About the information you already have: what is on record and how reliable it is.',
     ),
     questions: [
       {
-        // Si hoy no usan nada, no hay nada que pasar: no se pregunta.
-        id: 'g_migracion', type: 'multi',
+        // Si hoy no usan nada, no hay nada registrado: no se pregunta.
+        id: 'g_informacion', type: 'multi',
+        short: t('Información registrada', 'Informações registradas', 'Information on record'),
         showIf: { not: { answer: 'x_herramientas', only: ['nada'] } },
-        label: t('¿Qué información habría que pasar al sistema nuevo?', 'Que informações precisariam ser levadas para o sistema novo?', 'What information would need to move to the new system?'),
+        label: t(
+          '¿Qué información tienen registrada hoy, aunque sea en planillas o en papel?',
+          'Que informações vocês têm registradas hoje, mesmo que em planilhas ou papel?',
+          'What information do you have on record today, even in spreadsheets or on paper?',
+        ),
+        help: t('Es lo que se podría pasar al sistema nuevo.', 'É o que poderia ir para o sistema novo.', 'It is what could move into the new system.'),
         options: [
           o('clientes', 'Clientes', 'Clientes', 'Customers'),
           o('productos', 'Productos y precios', 'Produtos e preços', 'Products and prices'),
           o('stock', 'Stock', 'Estoque', 'Stock'),
-          o('historial', 'Historial de ventas o facturas', 'Histórico de vendas ou notas', 'Sales or invoice history'),
+          o('historial', 'Ventas o facturas anteriores', 'Vendas ou notas anteriores', 'Past sales or invoices'),
           o('proveedores', 'Proveedores', 'Fornecedores', 'Suppliers'),
-          o('nada', 'Nada: empezamos de cero', 'Nada: começamos do zero', 'Nothing: we start from scratch', { exclusive: true }),
-          DONT_KNOW_ALONE,
+          o('nada', 'Casi nada: está en la cabeza de las personas', 'Quase nada: está na cabeça das pessoas', "Hardly anything: it's in people's heads", { exclusive: true }),
+        ],
+      },
+      {
+        // Calidad de lo que hay: decide si se migra tal cual o primero hay que ordenarlo (un punto débil frecuente).
+        id: 'g_calidad', type: 'single',
+        short: t('Calidad de la información', 'Qualidade das informações', 'Information quality'),
+        showIf: { all: [{ answered: 'g_informacion' }, { not: { answer: 'g_informacion', only: ['nada'] } }] },
+        label: t('¿Qué tan confiable es esa información?', 'Quão confiável é essa informação?', 'How reliable is that information?'),
+        options: [
+          o('ordenada', 'Ordenada y al día', 'Organizada e em dia', 'Organized and up to date'),
+          o('desordenada', 'Está, pero desordenada, repetida o incompleta', 'Existe, mas desorganizada, repetida ou incompleta', "It's there, but messy, duplicated or incomplete"),
+          o('vieja', 'Bastante desactualizada', 'Bem desatualizada', 'Quite out of date'),
+          DONT_KNOW,
         ],
       },
     ],
@@ -258,27 +307,75 @@ export const SERVICES: Service[] = [
       t('Puesta en marcha y documentación', 'Implantação e documentação', 'Setup and documentation'),
     ],
     needs: t(
-      'Es útil conocer qué se necesita, cuántos equipos y sedes existen, y qué problemas se observan hoy.',
-      'Ajuda saber o que precisa, quantos equipamentos e locais existem e quais problemas percebem hoje.',
-      'It helps to know what you need, how many devices and locations there are, and what problems you notice today.',
+      'Es útil conocer qué problemas notan hoy, cuántos equipos y lugares hay y qué pasaría si se pierde la información. No hace falta saber de redes ni servidores.',
+      'Ajuda saber que problemas notam hoje, quantos equipamentos e locais existem e o que aconteceria se as informações se perdessem. Não é preciso entender de redes nem servidores.',
+      'It helps to know what problems you notice today, how many devices and locations there are and what would happen if information were lost. No knowledge of networks or servers needed.',
     ),
     stepIntro: t(
-      'Sobre la infraestructura: qué necesita instalar, mejorar o proteger.',
-      'Sobre a infraestrutura: o que precisa instalar, melhorar ou proteger.',
-      'About the infrastructure: what you need to install, improve or protect.',
+      'Sobre su tecnología de hoy: qué problemas notan y qué pasaría si algo falla. No hace falta saber de redes ni servidores.',
+      'Sobre a sua tecnologia hoje: que problemas notam e o que aconteceria se algo falhasse. Não é preciso entender de redes nem servidores.',
+      "About your technology today: what problems you notice and what would happen if something failed. You don't need to know about networks or servers.",
     ),
     questions: [
+      ...withOther(
+        {
+          // Síntomas, no soluciones: el cliente no sabe si necesita «un servidor» o «pasar a la nube»; sí sabe qué le pasa.
+          id: 'i_sintomas', type: 'multi', required: true, maxChoices: 3,
+          short: t('Problemas', 'Problemas', 'Problems'),
+          label: t('¿Qué problemas notan hoy?', 'Que problemas vocês notam hoje?', 'What problems do you notice today?'),
+          variants: [{ when: profileIs('independiente', 'personal'), label: t('¿Qué problemas nota hoy?', 'Que problemas você nota hoje?', 'What problems do you notice today?') }],
+          help: t('Los que más molestan en el día a día.', 'Os que mais atrapalham no dia a dia.', 'The ones that get in the way most, day to day.'),
+          options: [
+            o('internet', 'Internet lento o que se corta', 'Internet lenta ou que cai', 'Slow or dropping internet'),
+            o('equipos', 'Computadoras lentas o que fallan seguido', 'Computadores lentos ou que falham com frequência', 'Slow computers or frequent failures'),
+            o('compartir', 'Cuesta compartir archivos o impresoras', 'É difícil compartilhar arquivos ou impressoras', 'Sharing files or printers is hard'),
+            o('remoto', 'No se puede trabajar bien desde afuera', 'Não dá para trabalhar bem de fora', "You can't work well from outside"),
+            o('seguridad', 'Hubo virus, estafas o accesos indebidos', 'Houve vírus, golpes ou acessos indevidos', 'There have been viruses, scams or unauthorized access'),
+            o('nuevo', 'Hay que equipar un lugar nuevo (mudanza o sucursal)', 'É preciso equipar um lugar novo (mudança ou filial)', 'A new place needs setting up (a move or a branch)'),
+            o('ninguno', 'Ninguno: quiero prevenir o mejorar', 'Nenhum: quero prevenir ou melhorar', 'None: I want to prevent or improve', { exclusive: true }),
+            OTHER,
+          ],
+        },
+        t('Otro problema: ¿cuál?', 'Outro problema: qual?', 'Other problem: what is it?'),
+      ),
       {
-        id: 'i_necesidad', type: 'multi', required: true,
-        label: t('¿Qué necesita?', 'O que precisa?', 'What do you need?'),
+        // Cómo están las copias de seguridad, preguntado como consecuencia: el riesgo más común y el que menos se ve.
+        id: 'i_respaldo', type: 'single', required: true,
+        short: t('Si se pierde la computadora principal', 'Se o computador principal se perder', 'If the main computer is lost'),
+        label: t(
+          'Si mañana se rompe o se roban la computadora más importante, ¿qué pasa con la información?',
+          'Se amanhã o computador mais importante quebrar ou for roubado, o que acontece com as informações?',
+          'If the most important computer broke or was stolen tomorrow, what would happen to the information?',
+        ),
         options: [
-          o('red', 'Instalar o renovar la red', 'Instalar ou renovar a rede', 'Install or upgrade the network'),
-          o('nube', 'Pasar a la nube', 'Migrar para a nuvem', 'Move to the cloud'),
-          o('servidor', 'Servidor o almacenamiento', 'Servidor ou armazenamento', 'Server or storage'),
-          o('backup', 'Copias de seguridad', 'Backups', 'Backups'),
-          o('seguridad', 'Mejorar la seguridad', 'Melhorar a segurança', 'Improve security'),
-          o('sede', 'Equipar una oficina o sucursal nueva', 'Equipar um escritório ou filial nova', 'Set up a new office or branch'),
-          o('nose', 'No estoy seguro', 'Não tenho certeza', "I'm not sure", { exclusive: true }),
+          o('copia', 'Hay una copia en otro lado y se recupera', 'Há uma cópia em outro lugar e se recupera', "There's a copy elsewhere and it can be recovered"),
+          o('parte', 'Se recuperaría una parte', 'Daria para recuperar uma parte', 'Part of it could be recovered'),
+          o('perdida', 'Se perdería', 'Seria perdida', 'It would be lost'),
+          DONT_KNOW,
+        ],
+      },
+      {
+        // Cuánto depende el trabajo de que todo funcione: dice qué tan crítica es la continuidad (y cuánto conviene invertir).
+        id: 'i_caida', type: 'single', required: true, showIf: NOT_PERSONAL,
+        short: t('Si se corta todo', 'Se tudo cair', 'If everything goes down'),
+        label: t(
+          'Si se cortan internet o los sistemas, ¿cuánto tiempo pueden seguir trabajando?',
+          'Se a internet ou os sistemas caem, quanto tempo conseguem continuar trabalhando?',
+          'If the internet or systems go down, how long can you keep working?',
+        ),
+        variants: [{
+          when: profileIs('independiente'),
+          label: t(
+            'Si se cortan internet o los sistemas, ¿cuánto tiempo puede seguir trabajando?',
+            'Se a internet ou os sistemas caem, quanto tempo consegue continuar trabalhando?',
+            'If the internet or systems go down, how long can you keep working?',
+          ),
+        }],
+        options: [
+          o('nada', 'Nada: se frena todo', 'Nada: tudo para', 'Not at all: everything stops'),
+          o('horas', 'Unas horas', 'Algumas horas', 'A few hours'),
+          o('dias', 'Un día o más', 'Um dia ou mais', 'A day or more'),
+          o('poco', 'Casi no afecta', 'Quase não afeta', 'It barely matters'),
         ],
       },
     ],
@@ -301,35 +398,44 @@ export const SERVICES: Service[] = [
       t('Evaluación previa de factibilidad', 'Avaliação prévia de viabilidade', 'Up-front feasibility assessment'),
     ],
     needs: t(
-      'Es útil conocer qué tarea se realiza hoy de forma manual, con qué frecuencia y si existen ejemplos guardados.',
-      'Ajuda saber qual tarefa é feita hoje manualmente, com que frequência e se há exemplos guardados.',
-      'It helps to know which task is done by hand today, how often, and whether examples have been kept.',
+      'Es útil conocer qué tarea le quita tiempo hoy, cada cuánto se hace y si hay ejemplos guardados. Si no sabe qué puede hacer la IA en su caso, lo vemos juntos.',
+      'Ajuda saber que tarefa toma tempo hoje, com que frequência é feita e se há exemplos guardados. Se não sabe o que a IA pode fazer no seu caso, vemos juntos.',
+      'It helps to know which task takes up time today, how often it is done and whether examples have been kept. If you are not sure what AI could do for you, we look at it together.',
     ),
     stepIntro: t(
-      'Sobre la inteligencia artificial: qué tarea haría, cada cuánto y si tienen ejemplos guardados.',
-      'Sobre a inteligência artificial: que tarefa faria, com que frequência e se há exemplos guardados.',
-      'About artificial intelligence: what task it would do, how often, and whether you have saved examples.',
+      'Sobre la inteligencia artificial: qué tarea le gustaría sacarse de encima. Si no sabe qué se puede hacer, también sirve.',
+      'Sobre a inteligência artificial: que tarefa gostaria de tirar das suas costas. Se não sabe o que dá para fazer, também serve.',
+      "About artificial intelligence: which task you'd like off your plate. If you don't know what's possible, that's fine too.",
     ),
     questions: [
       ...withOther(
         {
           id: 'a_objetivo', type: 'multi', required: true,
-          label: t('¿Qué le gustaría que haga la IA?', 'O que gostaria que a IA fizesse?', 'What would you like the AI to do?'),
+          short: t('Tarea para la IA', 'Tarefa para a IA', 'Task for the AI'),
+          label: t('¿Qué tarea le gustaría sacarse de encima?', 'Que tarefa gostaria de tirar das suas costas?', 'Which task would you like off your plate?'),
+          help: t(
+            'Si no sabe qué puede hacer la IA en su caso, elija «No lo tengo claro»: lo vemos juntos.',
+            'Se não sabe o que a IA pode fazer no seu caso, escolha «Não tenho claro»: vemos juntos.',
+            'If you\'re not sure what AI could do for you, choose "I\'m not sure": we will look at it together.',
+          ),
           options: [
-            o('consultas', 'Responder consultas de clientes automáticamente', 'Responder dúvidas de clientes automaticamente', 'Answer customer inquiries automatically'),
-            o('documentos', 'Leer facturas, formularios u otros documentos', 'Ler notas fiscais, formulários ou outros documentos', 'Read invoices, forms or other documents'),
-            o('imagenes', 'Reconocer productos o situaciones en imágenes', 'Reconhecer produtos ou situações em imagens', 'Recognize products or situations in images'),
-            o('resumir', 'Resumir o clasificar información', 'Resumir ou classificar informações', 'Summarize or sort information'),
-            o('asistente', 'Asistir a mi equipo (buscar información, redactar)', 'Ajudar minha equipe (buscar informações, redigir)', 'Assist my team (finding information, drafting)'),
-            o('prever', 'Anticipar ventas, demanda o problemas', 'Antecipar vendas, demanda ou problemas', 'Forecast sales, demand or problems'),
+            o('consultas', 'Responder una y otra vez las mismas preguntas de clientes', 'Responder sempre as mesmas perguntas de clientes', 'Answering the same customer questions over and over'),
+            o('documentos', 'Copiar datos de facturas, formularios u otros documentos', 'Copiar dados de notas, formulários ou outros documentos', 'Copying data from invoices, forms or other documents'),
+            o('revisar', 'Revisar o clasificar fotos, documentos o mensajes', 'Revisar ou classificar fotos, documentos ou mensagens', 'Reviewing or sorting photos, documents or messages'),
+            o('redactar', 'Escribir textos, resúmenes o informes', 'Escrever textos, resumos ou relatórios', 'Writing texts, summaries or reports'),
+            o('buscar', 'Encontrar información que está desparramada', 'Encontrar informações espalhadas', 'Finding information scattered across places'),
+            o('prever', 'Anticipar ventas, demanda o problemas', 'Antecipar vendas, demanda ou problemas', 'Forecasting sales, demand or problems'),
+            o('explorar', 'No lo tengo claro: quiero saber qué se puede hacer', 'Não tenho claro: quero saber o que dá para fazer', "I'm not sure: I want to know what's possible", { exclusive: true }),
             OTHER,
           ],
         },
         t('Otra tarea: ¿cuál?', 'Outra tarefa: qual?', 'Other task: what is it?'),
       ),
       {
-        id: 'a_volumen', type: 'single',
-        label: t('¿Con qué frecuencia se haría esa tarea?', 'Com que frequência essa tarefa seria feita?', 'How often would that task be done?'),
+        // Sin una tarea elegida no hay frecuencia que medir.
+        id: 'a_volumen', type: 'single', showIf: { not: { answer: 'a_objetivo', only: ['explorar'] } },
+        short: t('Frecuencia', 'Frequência', 'Frequency'),
+        label: t('¿Cada cuánto se hace esa tarea?', 'Com que frequência essa tarefa é feita?', 'How often is that task done?'),
         options: [
           o('mes', 'Algunas veces al mes', 'Algumas vezes por mês', 'A few times a month'),
           o('dia', 'Todos los días', 'Todos os dias', 'Every day'),
@@ -339,11 +445,27 @@ export const SERVICES: Service[] = [
       },
       {
         id: 'a_datos', type: 'single',
+        short: t('Ejemplos guardados', 'Exemplos guardados', 'Saved examples'),
         label: t('¿Tienen ejemplos o historial guardado (documentos, fotos, conversaciones)?', 'Têm exemplos ou histórico guardado (documentos, fotos, conversas)?', 'Do you have examples or a history saved (documents, photos, conversations)?'),
         options: [
           o('muchos', 'Sí, bastantes', 'Sim, bastante', 'Yes, plenty'),
           o('algunos', 'Algunos', 'Alguns', 'Some'),
           o('no', 'No', 'Não', 'No'),
+          DONT_KNOW,
+        ],
+      },
+      {
+        // Cuánto control humano hace falta: decide si la IA puede actuar sola o solo sugerir (viabilidad y riesgo).
+        id: 'a_error', type: 'single', showIf: { not: { answer: 'a_objetivo', only: ['explorar'] } },
+        short: t('Si la IA se equivoca', 'Se a IA errar', 'If the AI gets it wrong'),
+        label: t(
+          'Si la IA se equivocara alguna vez en esa tarea, ¿qué tan grave sería?',
+          'Se a IA errasse alguma vez nessa tarefa, quão grave seria?',
+          'If the AI got that task wrong now and then, how serious would it be?',
+        ),
+        options: [
+          o('leve', 'Poco: alguien lo revisa antes', 'Pouco: alguém revisa antes', 'Not much: someone checks it first'),
+          o('delicado', 'Delicado: hay dinero, salud o temas legales en juego', 'Delicado: há dinheiro, saúde ou questões legais em jogo', 'Serious: money, health or legal matters are at stake'),
           DONT_KNOW,
         ],
       },
@@ -428,15 +550,15 @@ export const SERVICES: Service[] = [
 
 /* ------------------------ Secciones comunes ------------------------ */
 
-/** Paso 1: quién consulta y qué necesita. Lo mínimo para entender el contexto, para cualquier perfil. */
+/** Paso 1: quién consulta. Lo mínimo para ubicar el contexto, para cualquier perfil. */
 export const INQUIRY_SECTION: Section = {
   id: 'consulta',
   color: '#e8edf4',
   title: t('Su consulta', 'Sua consulta', 'Your inquiry'),
   intro: t(
-    'Primero, quién consulta y qué necesita. Son pocas preguntas.',
-    'Primeiro, quem está consultando e do que precisa. São poucas perguntas.',
-    'First, who is asking and what you need. Just a few questions.',
+    'Primero, quién consulta. Son pocas preguntas.',
+    'Primeiro, quem está consultando. São poucas perguntas.',
+    'First, who is asking. Just a few questions.',
   ),
   questions: [
     {
@@ -479,13 +601,14 @@ export const INQUIRY_SECTION: Section = {
       ],
     },
     {
-      // Qué es la empresa o el proyecto, no qué necesita: eso es `x_necesidad`, y la ayuda lo aclara para que no se mezclen.
+      // Qué es la empresa o el proyecto, no qué le pasa: eso es `x_necesidad`, y la ayuda lo aclara para que no se mezclen.
       id: 'p_descripcion', type: 'text', required: true, showIf: NOT_PERSONAL, maxLength: 160, autoComplete: 'off',
+      short: t('Descripción', 'Descrição', 'Description'),
       label: t('En una frase: ¿a qué se dedica la empresa y para quién?', 'Em uma frase: o que a empresa faz e para quem?', 'In one sentence: what does the company do, and for whom?'),
       help: t(
-        'Por ejemplo: «Distribuidora de alimentos para almacenes de zona norte». Lo que necesita resolver se lo preguntamos más adelante.',
-        'Por exemplo: «Distribuidora de alimentos para mercados da zona norte». O que precisa resolver perguntamos mais adiante.',
-        'For example: "Food distributor supplying corner shops in the north side". We will ask what you need to solve later on.',
+        'Por ejemplo: «Distribuidora de alimentos para almacenes de zona norte». Lo que necesita resolver se lo preguntamos enseguida.',
+        'Por exemplo: «Distribuidora de alimentos para mercados da zona norte». O que precisa resolver perguntamos em seguida.',
+        'For example: "Food distributor supplying corner shops in the north side". We will ask what you need to solve next.',
       ),
       placeholder: t('Escriba una frase', 'Escreva uma frase', 'Write one sentence'),
       variants: [
@@ -493,27 +616,27 @@ export const INQUIRY_SECTION: Section = {
           when: profileIs('organizacion'),
           label: t('En una frase: ¿qué hace la organización y para quién?', 'Em uma frase: o que a organização faz e para quem?', 'In one sentence: what does the organization do, and for whom?'),
           help: t(
-            'Por ejemplo: «Fundación que da apoyo escolar a 300 chicos del barrio». Lo que necesita resolver se lo preguntamos más adelante.',
-            'Por exemplo: «Fundação que dá reforço escolar a 300 crianças do bairro». O que precisa resolver perguntamos mais adiante.',
-            'For example: "A foundation that tutors 300 local kids". We will ask what you need to solve later on.',
+            'Por ejemplo: «Fundación que da apoyo escolar a 300 chicos del barrio». Lo que necesita resolver se lo preguntamos enseguida.',
+            'Por exemplo: «Fundação que dá reforço escolar a 300 crianças do bairro». O que precisa resolver perguntamos em seguida.',
+            'For example: "A foundation that tutors 300 local kids". We will ask what you need to solve next.',
           ),
         },
         {
           when: profileIs('independiente'),
           label: t('En una frase: ¿a qué se dedica y para quién trabaja?', 'Em uma frase: o que você faz e para quem trabalha?', 'In one sentence: what do you do, and who do you work for?'),
           help: t(
-            'Por ejemplo: «Arquitecta, hago reformas para particulares». Lo que necesita resolver se lo preguntamos más adelante.',
-            'Por exemplo: «Arquiteta, faço reformas para clientes particulares». O que precisa resolver perguntamos mais adiante.',
-            'For example: "Architect doing home renovations for private clients". We will ask what you need to solve later on.',
+            'Por ejemplo: «Arquitecta, hago reformas para particulares». Lo que necesita resolver se lo preguntamos enseguida.',
+            'Por exemplo: «Arquiteta, faço reformas para clientes particulares». O que precisa resolver perguntamos em seguida.',
+            'For example: "Architect doing home renovations for private clients". We will ask what you need to solve next.',
           ),
         },
         {
           when: profileIs('proyecto'),
           label: t('En una frase: ¿de qué se trata el proyecto y para quién es?', 'Em uma frase: do que se trata o projeto e para quem é?', 'In one sentence: what is the project, and who is it for?'),
           help: t(
-            'Por ejemplo: «Una app para reservar turnos en peluquerías de barrio». Lo que necesita resolver se lo preguntamos más adelante.',
-            'Por exemplo: «Um app para agendar horários em salões de bairro». O que precisa resolver perguntamos mais adiante.',
-            'For example: "An app to book appointments at local hair salons". We will ask what you need to solve later on.',
+            'Por ejemplo: «Una app para reservar turnos en peluquerías de barrio». En qué punto está se lo preguntamos enseguida.',
+            'Por exemplo: «Um app para agendar horários em salões de bairro». Em que ponto está perguntamos em seguida.',
+            'For example: "An app to book appointments at local hair salons". We will ask where it stands next.',
           ),
         },
       ],
@@ -528,29 +651,60 @@ export const INQUIRY_SECTION: Section = {
       ],
       options: PEOPLE_RANGES.map((opt) => ({ ...opt, crm: opt.id })),
     },
+  ],
+};
+
+/**
+ * Paso 2: el diagnóstico. Lo que el cliente SÍ sabe aunque no sepa nada de tecnología: qué pasa, cómo lo afecta, qué
+ * funciona bien (fortalezas), qué intentó y qué falló (puntos débiles), y qué quiere lograr. Con Soporte solo, el pedido
+ * es concreto (un equipo, una falla): queda la pregunta abierta y lo demás lo resuelven las preguntas de Soporte.
+ */
+export const DIAGNOSIS_SECTION: Section = {
+  id: 'diagnostico',
+  color: '#c9f27a',
+  title: t('Qué está pasando', 'O que está acontecendo', 'What is going on'),
+  intro: t(
+    'Lo más importante. No hace falta saber de tecnología ni qué solución necesita: cuéntenos qué pasa y qué le gustaría lograr. La solución la buscamos nosotros.',
+    'O mais importante. Não é preciso entender de tecnologia nem saber que solução precisa: conte o que acontece e o que gostaria de alcançar. A solução, buscamos nós.',
+    "The most important part. You don't need to know about technology or which solution you need: tell us what is happening and what you would like to achieve. Finding the solution is our job.",
+  ),
+  questions: [
     {
-      // La única pregunta abierta sobre la necesidad, para todos los servicios: antes cada servicio tenía la suya y, al
-      // elegir varios, la misma historia se contaba dos veces (o se repartía a ciegas entre las dos).
-      id: 'x_necesidad', type: 'textarea', required: true,
-      label: t('¿Qué necesita resolver o lograr?', 'O que precisa resolver ou alcançar?', 'What do you need to solve or achieve?'),
+      // La única pregunta abierta sobre la situación, para todos los servicios: si se eligen varios, se cuenta una vez.
+      // Habla de HOY; lo que quiere lograr va en `x_objetivos`, así no se cuentan dos veces lo mismo.
+      id: 'x_necesidad', type: 'textarea', required: true, maxLength: 500,
+      short: t('Situación', 'Situação', 'Situation'),
+      label: t('¿Qué está pasando que lo lleva a consultar?', 'O que está acontecendo que leva você a consultar?', 'What is going on that brings you here?'),
       help: t(
-        'Cuéntelo con sus palabras: qué pasa hoy o qué le gustaría lograr.',
-        'Conte com suas palavras: o que acontece hoje ou o que gostaria de alcançar.',
-        'In your own words: what happens today, or what you would like to achieve.',
+        'Con sus palabras, como se lo contaría a un colega: qué pasa hoy, qué le preocupa o qué idea tiene. No hace falta saber qué solución técnica necesita.',
+        'Com suas palavras, como contaria a um colega: o que acontece hoje, o que preocupa ou que ideia tem. Não é preciso saber que solução técnica precisa.',
+        "In your own words, as you would tell a colleague: what happens today, what worries you or what idea you have. You don't need to know which technical solution you need.",
       ),
       variants: [
-        { when: ONLY_SUPPORT, label: t('¿Qué necesita? Si algo falla, cuente qué pasa.', 'Do que precisa? Se algo está falhando, conte o que acontece.', 'What do you need? If something is failing, tell us what happens.') },
+        {
+          when: ONLY_SUPPORT,
+          label: t('¿Qué está fallando o qué necesita?', 'O que está falhando ou do que precisa?', 'What is failing, or what do you need?'),
+          help: t('Qué equipo, desde cuándo y qué hace (o qué no hace).', 'Qual equipamento, desde quando e o que faz (ou não faz).', 'Which equipment, since when, and what it does (or does not do).'),
+        },
+        {
+          when: profileIs('proyecto'),
+          label: t('¿En qué punto está el proyecto y qué necesita para avanzar?', 'Em que ponto está o projeto e do que precisa para avançar?', 'Where does the project stand, and what does it need to move forward?'),
+          placeholder: t(
+            'Ej.: tengo la idea y algunos interesados; necesito saber cuánto cuesta hacer la app y por dónde empezar',
+            'Ex.: tenho a ideia e alguns interessados; preciso saber quanto custa fazer o app e por onde começar',
+            'E.g.: I have the idea and a few interested people; I need to know what the app would cost and where to start',
+          ),
+        },
         {
           when: { minServices: 2 },
           help: t(
-            'Eligió varios servicios: cuente todo en esta misma respuesta. Después hay unas preguntas cortas sobre cada uno.',
-            'Escolheu vários serviços: conte tudo nesta mesma resposta. Depois vêm algumas perguntas curtas sobre cada um.',
-            'You chose several services: describe everything in this one answer. A few short questions about each one follow.',
+            'Eligió varios servicios: cuéntelo todo junto, como una sola historia. No hace falta saber qué solución técnica necesita.',
+            'Escolheu vários serviços: conte tudo junto, como uma só história. Não é preciso saber que solução técnica precisa.',
+            "You chose several services: tell it all together, as one story. You don't need to know which technical solution you need.",
           ),
         },
         // Ejemplo según el primer servicio elegido (en el orden del catálogo).
-        { when: { services: ['consultoria'] }, placeholder: t('Ej.: quiero saber si conviene conectar la tienda online con la facturación', 'Ex.: quero saber se vale a pena conectar a loja online ao faturamento', 'E.g.: I want to know whether to connect the online store to invoicing') },
-        { when: { all: [{ services: ['desarrollo'] }, profileIs('proyecto')] }, placeholder: t('Ej.: una app donde los clientes reserven turnos y paguen online', 'Ex.: um app onde os clientes agendem horários e paguem online', 'E.g.: an app where customers book appointments and pay online') },
+        { when: { services: ['consultoria'] }, placeholder: t('Ej.: vendemos bien pero no sabemos si ganamos plata, y cada uno anota las cosas a su manera', 'Ex.: vendemos bem mas não sabemos se temos lucro, e cada um anota as coisas do seu jeito', "E.g.: sales are good but we don't know if we make money, and everyone records things their own way") },
         { when: { services: ['desarrollo'] }, placeholder: t('Ej.: no sabemos qué stock tenemos y perdemos ventas', 'Ex.: não sabemos o estoque que temos e perdemos vendas', "E.g.: we don't know our stock and we lose sales") },
         { when: { services: ['gestion'] }, placeholder: t('Ej.: cada sucursal lleva su planilla y a fin de mes los números no cierran', 'Ex.: cada filial tem sua planilha e no fim do mês os números não batem', "E.g.: each branch keeps its own spreadsheet and the numbers don't add up at month end") },
         { when: { services: ['infraestructura'] }, placeholder: t('Ej.: internet se corta, se pierden archivos y los equipos andan lentos', 'Ex.: a internet cai, arquivos se perdem e os equipamentos estão lentos', 'E.g.: the internet drops, files get lost and computers are slow') },
@@ -558,23 +712,162 @@ export const INQUIRY_SECTION: Section = {
         { when: { services: ['soporte'] }, placeholder: t('Ej.: la computadora de caja no enciende desde ayer', 'Ex.: o computador do caixa não liga desde ontem', "E.g.: the checkout computer hasn't turned on since yesterday") },
       ],
     },
+    ...withOther(
+      {
+        // Puntos débiles en lenguaje de negocio: lo que le cuesta hoy. Hasta 3, para saber qué pesa más.
+        id: 'x_impacto', type: 'multi', required: true, maxChoices: 3, showIf: { all: [DIAGNOSIS, OPERATING] },
+        short: t('Impacto', 'Impacto', 'Impact'),
+        label: t('¿Cómo los afecta hoy esta situación?', 'Como essa situação afeta vocês hoje?', 'How does this affect you today?'),
+        variants: [{ when: profileIs('independiente'), label: t('¿Cómo lo afecta hoy esta situación?', 'Como essa situação afeta você hoje?', 'How does this affect you today?') }],
+        help: t('Las que más pesan: así sabemos por dónde empezar.', 'As que mais pesam: assim sabemos por onde começar.', 'The ones that matter most, so we know where to start.'),
+        options: [
+          o('tiempo', 'Se pierden horas en tareas a mano o repetidas', 'Perdem-se horas em tarefas manuais ou repetitivas', 'Hours go into manual or repetitive tasks'),
+          o('errores', 'Hay errores, olvidos o datos que no coinciden', 'Há erros, esquecimentos ou dados que não batem', "There are mistakes, things forgotten or figures that don't match"),
+          o('informacion', 'Falta información a tiempo para decidir', 'Faltam informações a tempo para decidir', 'Information to decide arrives late or not at all'),
+          o('clientes', 'Se pierden ventas o clientes, o se tarda en responder', 'Perdem-se vendas ou clientes, ou demora-se para responder', 'Sales or customers are lost, or replies take too long'),
+          o('dependencia', 'Todo depende de una o dos personas que saben cómo funciona', 'Tudo depende de uma ou duas pessoas que sabem como funciona', 'Everything depends on one or two people who know how it works'),
+          o('fallas', 'El trabajo se frena cuando algo falla', 'O trabalho para quando algo falha', 'Work stops when something fails'),
+          o('riesgo', 'Hay riesgo de perder información o de sufrir un ataque', 'Há risco de perder informações ou de sofrer um ataque', 'There is a risk of losing information or being attacked'),
+          o('crecer', 'Lo de hoy no va a alcanzar para crecer', 'O que temos hoje não vai dar conta do crescimento', "What we have today won't be enough to grow"),
+          o('ninguno', 'Todavía no nos afecta: es para mejorar o prevenir', 'Ainda não nos afeta: é para melhorar ou prevenir', "It doesn't affect us yet: it's to improve or prevent", { exclusive: true }),
+          OTHER,
+        ],
+      },
+      SOMETHING_ELSE,
+    ),
+    {
+      // Un proyecto nuevo no tiene «cómo lo afecta»: tiene con qué cuenta. Es su fortaleza y dice qué tan maduro está.
+      id: 'x_avance', type: 'multi', required: true, showIf: { all: [DIAGNOSIS, profileIs('proyecto')] },
+      short: t('Con qué cuenta', 'Com o que conta', 'What it already has'),
+      label: t('¿Con qué cuenta ya el proyecto?', 'Com o que o projeto já conta?', 'What does the project already have?'),
+      help: t('Lo que ya tiene pesa tanto como lo que falta.', 'O que já existe pesa tanto quanto o que falta.', 'What you already have matters as much as what is missing.'),
+      options: [
+        o('probada', 'La idea ya se probó: alguien la usó o la pagó', 'A ideia já foi testada: alguém usou ou pagou', 'The idea has been tested: someone used it or paid for it'),
+        o('interesados', 'Clientes o usuarios interesados', 'Clientes ou usuários interessados', 'Interested customers or users'),
+        o('equipo', 'Un equipo armado', 'Uma equipe formada', 'A team in place'),
+        o('experiencia', 'Experiencia en el rubro', 'Experiência no setor', 'Experience in the industry'),
+        o('financiamiento', 'Financiamiento propio o de inversores', 'Financiamento próprio ou de investidores', 'Own funding or investors'),
+        o('nada', 'Todavía nada: estoy empezando', 'Ainda nada: estou começando', "Nothing yet: I'm just starting", { exclusive: true }),
+      ],
+    },
+    ...withOther(
+      {
+        // Fortalezas: lo que conviene cuidar. Sin «información ordenada» (es `g_calidad`) ni «un sistema que funciona» (es
+        // `x_sistema_actual`): cada cosa se pregunta una vez.
+        id: 'x_fortalezas', type: 'multi', maxChoices: 3, showIf: { all: [DIAGNOSIS, OPERATING] },
+        short: t('Fortalezas', 'Pontos fortes', 'Strengths'),
+        label: t('¿Qué funciona bien hoy y conviene cuidar?', 'O que funciona bem hoje e vale a pena preservar?', 'What works well today and is worth keeping?'),
+        help: t(
+          'Lo que ya funciona también cuenta: así no se cambia lo que no hace falta.',
+          'O que já funciona também conta: assim não se muda o que não precisa.',
+          "What already works counts too: that way we don't change what doesn't need changing.",
+        ),
+        options: [
+          o('experiencia', 'Experiencia y conocimiento del rubro', 'Experiência e conhecimento do setor', 'Experience and knowledge of the industry'),
+          o('equipo', 'Un equipo que conoce bien su trabajo', 'Uma equipe que conhece bem o trabalho', 'A team that knows its job well'),
+          o('clientes', 'Clientes fieles o conformes con la atención', 'Clientes fiéis ou satisfeitos com o atendimento', 'Loyal customers, happy with the service'),
+          o('procesos', 'Procesos claros, aunque se hagan a mano', 'Processos claros, mesmo que feitos à mão', 'Clear processes, even if done by hand'),
+          o('cambio', 'Ganas de cambiar la forma de trabajar', 'Vontade de mudar a forma de trabalhar', 'Willingness to change the way we work'),
+          OTHER,
+        ],
+      },
+      t('Otra fortaleza: ¿cuál?', 'Outro ponto forte: qual?', 'Other strength: what is it?'),
+    ),
+    shared(
+      {
+        // Dónde está el problema, en áreas del negocio (no módulos de un sistema).
+        id: 'x_areas', type: 'multi', maxChoices: 3,
+        short: t('Áreas', 'Áreas', 'Areas'),
+        label: t('¿En qué partes del trabajo es más urgente resolver o mejorar algo?', 'Em que partes do trabalho é mais urgente resolver ou melhorar algo?', 'In which parts of your work is it most urgent to solve or improve something?'),
+        help: t('Por ahí empezamos; el resto lo vemos en la reunión.', 'Começamos por aí; o resto vemos na reunião.', 'That is where we start; the rest we cover in the meeting.'),
+        variants: [{ when: profileIs('proyecto'), label: t('¿Qué partes del negocio tiene que resolver primero el proyecto?', 'Que partes do negócio o projeto precisa resolver primeiro?', 'Which parts of the business must the project handle first?') }],
+        options: [
+          o('ventas', 'Ventas y presupuestos', 'Vendas e orçamentos', 'Sales and quotes'),
+          o('clientes', 'Clientes y seguimiento', 'Clientes e acompanhamento', 'Customers and follow-up'),
+          o('stock', 'Stock e inventario', 'Estoque e inventário', 'Stock and inventory'),
+          o('compras', 'Compras y proveedores', 'Compras e fornecedores', 'Purchasing and suppliers'),
+          o('facturacion', 'Facturación y cobranzas', 'Faturamento e cobranças', 'Invoicing and collections'),
+          o('personal', 'Personal', 'Pessoal / RH', 'Staff / HR'),
+          o('produccion', 'Producción', 'Produção', 'Production'),
+          o('proyectos', 'Proyectos y servicios', 'Projetos e serviços', 'Projects and services'),
+          o('atencion', 'Turnos, reservas o atención al público', 'Agendamentos, reservas ou atendimento ao público', 'Appointments, bookings or customer service'),
+        ],
+      },
+      { services: ['gestion', 'desarrollo', 'consultoria'], requiredFor: ['gestion'], showIf: NOT_PERSONAL },
+    ),
+    {
+      // Intentos previos: lo que ya se probó y por qué no funcionó dice más de los riesgos que cualquier otra pregunta.
+      id: 'x_intentos', type: 'single', required: true, showIf: { all: [DIAGNOSIS, NOT_PERSONAL] },
+      short: t('Intentos anteriores', 'Tentativas anteriores', 'Previous attempts'),
+      label: t('¿Ya intentaron resolverlo antes?', 'Já tentaram resolver isso antes?', 'Have you tried to solve this before?'),
+      variants: [
+        { when: profileIs('independiente'), label: t('¿Ya intentó resolverlo antes?', 'Já tentou resolver isso antes?', 'Have you tried to solve this before?') },
+        { when: profileIs('proyecto'), label: t('¿Ya empezó a construirlo, o trabajó con alguien en esto?', 'Já começou a construí-lo, ou trabalhou com alguém nisso?', 'Have you started building it, or worked with anyone on it?') },
+      ],
+      options: [
+        o('no', 'No, es la primera vez', 'Não, é a primeira vez', 'No, this is the first time'),
+        o('propio', 'Sí, por nuestra cuenta', 'Sim, por conta própria', 'Yes, on our own'),
+        o('proveedor', 'Sí, con otro proveedor o sistema', 'Sim, com outro fornecedor ou sistema', 'Yes, with another provider or system'),
+        o('curso', 'Hay algo en marcha que no nos convence', 'Há algo em andamento que não nos convence', "There's something underway we're not happy with"),
+      ],
+    },
+    ...withOther(
+      {
+        id: 'x_intentos_falla', type: 'multi', showIf: is('x_intentos', 'propio', 'proveedor', 'curso'),
+        label: t('¿Qué no funcionó?', 'O que não funcionou?', "What didn't work?"),
+        help: t('Nos ayuda a no repetirlo.', 'Ajuda a não repetir.', 'It helps us avoid repeating it.'),
+        options: [
+          o('medias', 'Quedó a medias o sin terminar', 'Ficou pela metade ou sem terminar', 'It was left half done'),
+          o('costo', 'Costó o tardó más de lo previsto', 'Custou ou demorou mais que o previsto', 'It cost more or took longer than planned'),
+          o('uso', 'La gente no lo terminó de usar', 'As pessoas não chegaram a usar', "People didn't really use it"),
+          o('ajuste', 'No se adaptaba a la forma de trabajar', 'Não se adaptava à forma de trabalhar', "It didn't fit the way we work"),
+          o('respuesta', 'Nadie respondía cuando había un problema', 'Ninguém respondia quando havia um problema', 'Nobody answered when there was a problem'),
+          OTHER,
+        ],
+      },
+      SOMETHING_ELSE,
+    ),
+    {
+      // Hacia dónde va, a 6-12 meses: el objetivo que la solución tiene que acompañar. Opcional: obligatoria juntaba relleno.
+      id: 'x_objetivos', type: 'textarea', maxLength: 250, showIf: { all: [DIAGNOSIS, NOT_PERSONAL] },
+      short: t('Objetivos a 6-12 meses', 'Objetivos para 6-12 meses', 'Goals for 6-12 months'),
+      label: t('¿Qué le gustaría haber logrado dentro de 6 a 12 meses?', 'O que gostaria de ter alcançado daqui a 6 a 12 meses?', 'What would you like to have achieved in 6 to 12 months?'),
+      help: t(
+        'Pensando a mediano plazo, no solo en lo de ahora. Si todavía no lo tiene claro, puede omitirla.',
+        'Pensando no médio prazo, não só no agora. Se ainda não está claro, pode pular.',
+        'Think medium term, not just about today. If it is not clear yet, you can skip it.',
+      ),
+      placeholder: t('Ej.: cerrar el mes en un día y abrir una segunda sucursal con el mismo sistema', 'Ex.: fechar o mês em um dia e abrir uma segunda filial com o mesmo sistema', 'E.g.: close the month in one day and open a second branch on the same system'),
+      variants: [
+        {
+          when: profileIs('independiente'),
+          placeholder: t('Ej.: atender más clientes sin sumar horas de administración', 'Ex.: atender mais clientes sem somar horas de administração', 'E.g.: serve more clients without adding admin hours'),
+        },
+        {
+          when: profileIs('proyecto'),
+          label: t('¿Hasta dónde quiere llevar el proyecto en los próximos 6 a 12 meses?', 'Até onde quer levar o projeto nos próximos 6 a 12 meses?', 'How far do you want to take the project in the next 6 to 12 months?'),
+          placeholder: t('Ej.: lanzar la primera versión y llegar a los primeros 100 clientes', 'Ex.: lançar a primeira versão e chegar aos primeiros 100 clientes', 'E.g.: launch the first version and reach the first 100 customers'),
+        },
+      ],
+    },
   ],
 };
 
-/** Paso 2: lo que necesitan dos servicios o más, una sola vez. Cada pregunta dice para qué servicios se hace (`shared`). */
+/** Paso 3: con qué cuentan hoy. Lo que necesitan dos servicios o más, una sola vez (`shared`). */
 export const CONTEXT_SECTION: Section = {
   id: 'contexto',
   color: '#a8b3c7',
-  title: t('Situación actual', 'Situação atual', 'Current situation'),
+  title: t('Cómo trabajan hoy', 'Como trabalham hoje', 'How you work today'),
   intro: t(
-    'Unas preguntas rápidas, de opciones, sobre cómo se organizan hoy.',
-    'Algumas perguntas rápidas, de opções, sobre como se organizam hoje.',
-    'A few quick multiple-choice questions about how you work today.',
+    'Preguntas rápidas, de opciones, para entender con qué cuentan hoy.',
+    'Perguntas rápidas, de opções, para entender com o que contam hoje.',
+    'Quick multiple-choice questions to understand what you have today.',
   ),
   questions: [
     shared(
       {
         id: 'x_herramientas', type: 'multi',
+        short: t('Herramientas actuales', 'Ferramentas atuais', 'Current tools'),
         label: t('¿Con qué se organizan hoy?', 'Com o que se organizam hoje?', 'What do you use to get organized today?'),
         variants: [
           { when: profileIs('independiente', 'personal'), label: t('¿Con qué se organiza hoy?', 'Com o que se organiza hoje?', 'What do you use to get organized today?') },
@@ -597,6 +890,7 @@ export const CONTEXT_SECTION: Section = {
         // Solo si hay un sistema: sin él, «mejorar o reemplazar el existente» no tiene sentido (el lead 0001 lo eligió
         // trabajando con papel y WhatsApp).
         id: 'x_sistema_actual', type: 'single',
+        short: t('Sistema actual', 'Sistema atual', 'Current system'),
         label: t('¿Qué le gustaría hacer con el sistema que ya usan?', 'O que gostaria de fazer com o sistema que já usam?', 'What would you like to do with the system you already use?'),
         options: [
           o('mejorar', 'Mejorarlo o ampliarlo', 'Melhorá-lo ou ampliá-lo', 'Improve or extend it'),
@@ -607,55 +901,43 @@ export const CONTEXT_SECTION: Section = {
       },
       { services: ['desarrollo', 'gestion'], requiredFor: ['desarrollo', 'gestion'], showIf: is('x_herramientas', 'propio', 'comercial') },
     ),
-    shared(
-      {
-        id: 'x_areas', type: 'multi',
-        label: t('¿Qué áreas de su trabajo tendría que cubrir el sistema?', 'Quais áreas do seu trabalho o sistema deveria cobrir?', 'Which areas of your work should the system cover?'),
-        options: [
-          o('ventas', 'Ventas y presupuestos', 'Vendas e orçamentos', 'Sales and quotes'),
-          o('clientes', 'Clientes y seguimiento', 'Clientes e acompanhamento', 'Customers and follow-up'),
-          o('stock', 'Stock e inventario', 'Estoque e inventário', 'Stock and inventory'),
-          o('compras', 'Compras y proveedores', 'Compras e fornecedores', 'Purchasing and suppliers'),
-          o('facturacion', 'Facturación y cobranzas', 'Faturamento e cobranças', 'Invoicing and collections'),
-          o('personal', 'Personal', 'Pessoal / RH', 'Staff / HR'),
-          o('produccion', 'Producción', 'Produção', 'Production'),
-          o('proyectos', 'Proyectos y servicios', 'Projetos e serviços', 'Projects and services'),
-          o('atencion', 'Turnos, reservas o atención al público', 'Agendamentos, reservas ou atendimento ao público', 'Appointments, bookings or customer service'),
-        ],
-      },
-      { services: ['gestion', 'desarrollo'], requiredFor: ['gestion'] },
-    ),
     ...withOther(
       shared(
         {
-          // «Otras» herramientas: el sistema actual ya tiene su pregunta, y las planillas son algo a migrar, no a conectar.
-          id: 'x_integraciones', type: 'multi',
-          label: t('¿Con qué otras herramientas tendría que conectarse?', 'Com quais outras ferramentas precisaria se conectar?', 'What other tools would it need to connect to?'),
+          // La necesidad de integrar, contada como síntoma: datos cargados dos veces o pasados a mano.
+          id: 'x_integraciones', type: 'multi', maxChoices: 3,
+          short: t('Datos cargados dos veces', 'Dados digitados duas vezes', 'Data entered twice'),
+          label: t(
+            '¿Hay datos que se cargan dos veces o se pasan a mano de un lugar a otro?',
+            'Há dados digitados duas vezes ou passados à mão de um lugar para outro?',
+            'Is any data entered twice, or copied by hand from one place to another?',
+          ),
           help: t(
-            'Por ejemplo, que una venta en la tienda online llegue sola a la facturación.',
-            'Por exemplo, que uma venda na loja online chegue sozinha ao faturamento.',
-            'For example, an online store sale reaching invoicing on its own.',
+            'Por ejemplo, copiar a mano las ventas de la tienda online a la facturación. Marque dónde pasa más.',
+            'Por exemplo, copiar à mão as vendas da loja online para o faturamento. Marque onde mais acontece.',
+            'For example, copying online store sales into invoicing by hand. Mark where it happens most.',
           ),
           options: [
             o('tienda', 'Tienda online o marketplace', 'Loja online ou marketplace', 'Online store or marketplace'),
             o('facturacion', 'Facturación electrónica', 'Nota fiscal eletrônica', 'E-invoicing'),
-            o('pagos', 'Bancos o medios de pago', 'Bancos ou meios de pagamento', 'Banks or payment providers'),
-            o('whatsapp', 'WhatsApp', 'WhatsApp', 'WhatsApp'),
-            o('correo', 'Correo electrónico', 'E-mail', 'Email'),
-            o('contable', 'Sistema contable o del estudio contable', 'Sistema contábil ou do escritório de contabilidade', "Accounting software or your accountant's system"),
-            o('ninguna', 'Con ninguna', 'Com nenhuma', 'None', { exclusive: true }),
+            o('pagos', 'Banco o medios de pago', 'Banco ou meios de pagamento', 'Bank or payment providers'),
+            o('mensajeria', 'WhatsApp o correo', 'WhatsApp ou e-mail', 'WhatsApp or email'),
+            o('planillas', 'Planillas', 'Planilhas', 'Spreadsheets'),
+            o('contable', 'Sistema contable o contador', 'Sistema contábil ou contador', 'Accounting software or accountant'),
+            o('ninguna', 'No: cada dato se carga una sola vez', 'Não: cada dado é digitado uma só vez', 'No: each piece of data is entered once', { exclusive: true }),
             DONT_KNOW_ALONE,
             OTHER,
           ],
         },
         { services: ['gestion', 'desarrollo', 'ia'] },
       ),
-      t('Otra herramienta: ¿cuál?', 'Outra ferramenta: qual?', 'Other tool: what is it?'),
+      t('Otro lugar: ¿cuál?', 'Outro lugar: qual?', 'Somewhere else: where?'),
     ),
     shared(
       {
         // Mismos rangos que el tamaño (los de Frappe): se pueden comparar. Los de afuera van aparte (visitantes web, clientes).
         id: 'x_usuarios_int', type: 'single',
+        short: t('Usuarios del equipo', 'Usuários da equipe', 'Team users'),
         label: t('¿Cuántas personas de su equipo usarían el sistema?', 'Quantas pessoas da sua equipe usariam o sistema?', 'How many people on your team would use the system?'),
         options: PEOPLE_RANGES,
       },
@@ -664,6 +946,7 @@ export const CONTEXT_SECTION: Section = {
     shared(
       {
         id: 'x_usuarios_ext', type: 'single',
+        short: t('Usuarios de afuera', 'Usuários de fora', 'Outside users'),
         label: t('¿También usarían el sistema clientes, alumnos u otras personas de afuera?', 'Clientes, alunos ou outras pessoas de fora também usariam o sistema?', 'Would customers, students or other outside people use the system too?'),
         help: t(
           'Por ejemplo, clientes que hacen pedidos o reservan turnos desde la web.',
@@ -683,6 +966,7 @@ export const CONTEXT_SECTION: Section = {
     shared(
       {
         id: 'x_sedes', type: 'single',
+        short: t('Lugares de trabajo', 'Locais de trabalho', 'Work locations'),
         label: t('¿Desde cuántos lugares trabajan?', 'De quantos locais trabalham?', 'How many locations do you work from?'),
         variants: [{ when: profileIs('independiente'), label: t('¿Desde cuántos lugares trabaja?', 'De quantos locais trabalha?', 'How many locations do you work from?') }],
         options: [
@@ -699,6 +983,7 @@ export const CONTEXT_SECTION: Section = {
       {
         // Equipos, no personas: una persona sola puede tener un servidor y diez cámaras.
         id: 'x_equipos', type: 'single',
+        short: t('Equipos', 'Equipamentos', 'Devices'),
         label: t('¿Cuántos equipos hay en total (computadoras, servidores, impresoras)?', 'Quantos equipamentos há no total (computadores, servidores, impressoras)?', 'How many devices are there in total (computers, servers, printers)?'),
         options: [
           o('1-10', '1 a 10', '1 a 10', '1 to 10'),
@@ -709,22 +994,51 @@ export const CONTEXT_SECTION: Section = {
       },
       { services: ['infraestructura', 'soporte'], requiredFor: ['infraestructura'], showIf: NOT_PERSONAL },
     ),
+    shared(
+      {
+        // Capacidad propia: quién sostiene la solución después. Decide qué tan autónoma tiene que ser (y si hace falta soporte).
+        id: 'x_responsable', type: 'single',
+        short: t('Quién se ocupa de la tecnología', 'Quem cuida da tecnologia', 'Who handles technology'),
+        label: t('¿Quién se ocupa hoy de la tecnología?', 'Quem cuida da tecnologia hoje?', 'Who looks after technology today?'),
+        help: t(
+          'Computadoras, sistemas, internet: quién lo resuelve cuando hace falta.',
+          'Computadores, sistemas, internet: quem resolve quando é preciso.',
+          'Computers, systems, internet: who sorts it out when needed.',
+        ),
+        variants: [
+          { when: profileIs('independiente'), label: t('¿Quién lo ayuda hoy con la tecnología?', 'Quem ajuda você hoje com a tecnologia?', 'Who helps you with technology today?') },
+          { when: profileIs('proyecto'), label: t('¿Quién se ocupa de la parte técnica del proyecto?', 'Quem cuida da parte técnica do projeto?', 'Who handles the technical side of the project?') },
+        ],
+        options: [
+          o('nadie', 'Nadie en particular: nos arreglamos como podemos', 'Ninguém em particular: nos viramos como dá', 'No one in particular: we manage as best we can'),
+          o('interno', 'Alguien de adentro que sabe, además de su trabajo', 'Alguém de dentro que entende, além do próprio trabalho', 'Someone inside who knows, on top of their job'),
+          o('externo', 'Un técnico o una empresa de afuera', 'Um técnico ou uma empresa de fora', 'An outside technician or company'),
+          o('sistemas', 'Una persona o un área dedicada a sistemas', 'Uma pessoa ou área dedicada a sistemas', 'A dedicated IT person or team'),
+        ],
+      },
+      {
+        services: ['consultoria', 'desarrollo', 'gestion', 'infraestructura', 'ia', 'soporte'],
+        requiredFor: ['desarrollo', 'gestion', 'infraestructura'],
+        showIf: NOT_PERSONAL,
+      },
+    ),
   ],
 };
 
 export const CLOSING_SECTION: Section = {
   id: 'cierre',
   color: '#ffe27a',
-  title: t('Objetivos y reunión', 'Objetivos e reunião', 'Goals and meeting'),
+  title: t('Alcance y reunión', 'Alcance e reunião', 'Scope and meeting'),
   intro: t(
-    'Con esto preparamos la videollamada. La propuesta final la definimos juntos.',
-    'Com isto preparamos a videochamada. A proposta final definimos juntos.',
-    'This helps us prepare the video call. We will shape the final proposal together.',
+    'Para ver juntos qué es viable y cómo encararlo. La propuesta la definimos en la reunión.',
+    'Para vermos juntos o que é viável e como encarar. A proposta definimos na reunião.',
+    'To work out together what is feasible and how to approach it. We will shape the proposal in the meeting.',
   ),
   questions: [
     {
       // Con Soporte solo, el alcance ya lo dice `s_tipo` (reparación puntual o mantenimiento periódico).
-      id: 'e_alcance', type: 'single', required: true, showIf: { not: ONLY_SUPPORT },
+      id: 'e_alcance', type: 'single', required: true, showIf: DIAGNOSIS,
+      short: t('Alcance', 'Alcance', 'Scope'),
       label: t('¿Qué alcance imagina para este trabajo?', 'Que alcance imagina para este trabalho?', 'What scope do you have in mind?'),
       help: t(
         'Si todavía no lo sabe, elija «Todavía no lo sé»: lo vemos juntos en la reunión.',
@@ -737,29 +1051,6 @@ export const CLOSING_SECTION: Section = {
         o('completo', 'Un proyecto completo, de principio a fin', 'Um projeto completo, do início ao fim', 'A complete project, start to finish'),
         o('continuo', 'Acompañamiento continuo', 'Acompanhamento contínuo', 'Ongoing support'),
         o('nose', 'Todavía no lo sé', 'Ainda não sei', "I'm not sure yet"),
-      ],
-    },
-    {
-      id: 'e_objetivos', type: 'textarea', maxLength: 400, showIf: { all: [{ not: ONLY_SUPPORT }, NOT_PERSONAL] },
-      label: t('¿Qué objetivos tiene la empresa para los próximos 6 a 12 meses?', 'Quais objetivos a empresa tem para os próximos 6 a 12 meses?', "What are the company's goals for the next 6 to 12 months?"),
-      help: t(
-        'Pensando a mediano plazo, no solo en lo de ahora. Si todavía no lo tiene claro, puede omitirla.',
-        'Pensando no médio prazo, não só no agora. Se ainda não está claro, pode pular.',
-        'Think medium term, not just about today. If it is not clear yet, you can skip it.',
-      ),
-      placeholder: t('Ej.: cerrar el mes en un día y abrir una segunda sucursal con el mismo sistema', 'Ex.: fechar o mês em um dia e abrir uma segunda filial com o mesmo sistema', 'E.g.: close the month in one day and open a second branch on the same system'),
-      variants: [
-        { when: profileIs('organizacion'), label: t('¿Qué objetivos tiene la organización para los próximos 6 a 12 meses?', 'Quais objetivos a organização tem para os próximos 6 a 12 meses?', "What are the organization's goals for the next 6 to 12 months?") },
-        {
-          when: profileIs('independiente'),
-          label: t('¿Qué objetivos tiene para los próximos 6 a 12 meses?', 'Quais objetivos você tem para os próximos 6 a 12 meses?', 'What are your goals for the next 6 to 12 months?'),
-          placeholder: t('Ej.: atender más clientes sin sumar horas de administración', 'Ex.: atender mais clientes sem somar horas de administração', 'E.g.: serve more clients without adding admin hours'),
-        },
-        {
-          when: profileIs('proyecto'),
-          label: t('¿Hasta dónde quiere llevar el proyecto en los próximos 6 a 12 meses?', 'Até onde quer levar o projeto nos próximos 6 a 12 meses?', 'How far do you want to take the project in the next 6 to 12 months?'),
-          placeholder: t('Ej.: lanzar la primera versión y llegar a los primeros 100 clientes', 'Ex.: lançar a primeira versão e chegar aos primeiros 100 clientes', 'E.g.: launch the first version and reach the first 100 customers'),
-        },
       ],
     },
     {
@@ -797,7 +1088,43 @@ export const CLOSING_SECTION: Section = {
       ],
     },
     {
+      // Viabilidad: un sistema o un cambio de procesos necesita a alguien del lado del cliente que explique y pruebe.
+      id: 'e_dedicacion', type: 'single', showIf: { all: [{ services: ['desarrollo', 'gestion', 'ia'] }, NOT_PERSONAL] },
+      short: t('Tiempo de su lado', 'Tempo do seu lado', 'Time on their side'),
+      label: t('¿Cuánto tiempo podrían dedicarle de su lado?', 'Quanto tempo poderiam dedicar do seu lado?', 'How much time could your side put into it?'),
+      variants: [{ when: profileIs('independiente', 'proyecto'), label: t('¿Cuánto tiempo podría dedicarle usted?', 'Quanto tempo você poderia dedicar?', 'How much time could you put into it?') }],
+      help: t(
+        'Para que salga bien, alguien de su lado tiene que contar cómo trabajan y probar lo que se hace.',
+        'Para dar certo, alguém do seu lado precisa contar como trabalham e testar o que é feito.',
+        'For it to work, someone on your side needs to explain how you work and try out what gets built.',
+      ),
+      options: [
+        o('varias', 'Varias horas por semana', 'Várias horas por semana', 'Several hours a week'),
+        o('pocas', 'Unas pocas horas por semana', 'Poucas horas por semana', 'A few hours a week'),
+        o('minimo', 'Muy poco: preferimos que se encarguen ustedes', 'Muito pouco: preferimos que vocês cuidem disso', "Very little: we'd rather you handle it"),
+        DONT_KNOW,
+      ],
+    },
+    {
+      // Los riesgos que ve el cliente: se planifica para evitarlos y se habla de ellos en la reunión.
+      id: 'e_preocupaciones', type: 'multi', maxChoices: 3, showIf: { all: [DIAGNOSIS, NOT_PERSONAL] },
+      short: t('Preocupaciones', 'Preocupações', 'Concerns'),
+      label: t('¿Qué le preocupa de encarar esto?', 'O que preocupa você em encarar isso?', 'What worries you about taking this on?'),
+      help: t('Lo tenemos en cuenta para planificar.', 'Levamos em conta ao planejar.', 'We take it into account when planning.'),
+      options: [
+        o('costo', 'Cuánto va a costar', 'Quanto vai custar', 'How much it will cost'),
+        o('tiempo', 'Cuánto va a tardar', 'Quanto vai demorar', 'How long it will take'),
+        o('adopcion', 'Que la gente no lo use', 'Que as pessoas não usem', "That people won't use it"),
+        o('frenar', 'Frenar el trabajo durante el cambio', 'Parar o trabalho durante a mudança', 'Work stopping during the change'),
+        o('datos', 'Perder información en el cambio', 'Perder informações na mudança', 'Losing information in the change'),
+        o('funcione', 'No saber si la idea va a funcionar', 'Não saber se a ideia vai funcionar', 'Not knowing whether the idea will work'),
+        o('proveedor', 'Quedar atado a un proveedor', 'Ficar preso a um fornecedor', 'Being locked in to a provider'),
+        o('nada', 'Nada en particular', 'Nada em particular', 'Nothing in particular', { exclusive: true }),
+      ],
+    },
+    {
       id: 'e_horario', type: 'multi', showIf: { not: SUPPORT_EMERGENCY_ONLY },
+      short: t('Horario', 'Horário', 'Time'),
       label: t('Franja preferida para la videollamada', 'Horário preferido para a videochamada', 'Preferred time for the video call'),
       help: t('En la hora de donde usted está.', 'No horário de onde você está.', 'In the time zone where you are.'),
       options: [
@@ -809,6 +1136,7 @@ export const CLOSING_SECTION: Section = {
     },
     {
       id: 'e_plataforma', type: 'single', showIf: { not: SUPPORT_EMERGENCY_ONLY },
+      short: t('Plataforma', 'Plataforma', 'Platform'),
       label: t('¿Por dónde prefiere la videollamada?', 'Por onde prefere a videochamada?', 'Where would you prefer the video call?'),
       options: [
         o('meet', 'Google Meet', 'Google Meet', 'Google Meet'),
@@ -851,6 +1179,7 @@ export const CONTACT_SECTION: Section = {
     },
     {
       id: 'p_web', type: 'text', format: 'url', maxLength: 100, autoComplete: 'url', inputMode: 'url', showIf: NOT_PERSONAL,
+      short: t('Web o red social', 'Site ou rede social', 'Website or social'),
       label: t('Sitio web o red social (si tiene)', 'Site ou rede social (se tiver)', 'Website or social media (if any)'),
       placeholder: t('empresa.com o @empresa', 'empresa.com.br ou @empresa', 'company.com or @company'),
     },
@@ -869,6 +1198,7 @@ export const CONTACT_SECTION: Section = {
     {
       // Al menos un medio de contacto: sin correo, el teléfono pasa a ser obligatorio (el lead 0001 quedó sin ninguno).
       id: 'p_telefono', type: 'text', format: 'phone', maxLength: 25, autoComplete: 'tel', inputMode: 'tel',
+      short: t('Teléfono', 'Telefone', 'Phone'),
       required: { not: { answered: 'p_correo' } },
       label: t('Teléfono o WhatsApp, con código de país', 'Telefone ou WhatsApp, com código do país', 'Phone or WhatsApp, with country code'),
       help: t('Solo por si el correo no llega.', 'Só para o caso de o e-mail não chegar.', 'Just in case the email does not reach you.'),
@@ -896,12 +1226,12 @@ export function serviceToSection(svc: Service): Section {
 }
 
 /** Secciones comunes antes y después de las de los servicios. */
-export const SECTIONS_BEFORE_SERVICES = [INQUIRY_SECTION, CONTEXT_SECTION];
+export const SECTIONS_BEFORE_SERVICES = [INQUIRY_SECTION, DIAGNOSIS_SECTION, CONTEXT_SECTION];
 export const SECTIONS_AFTER_SERVICES = [CLOSING_SECTION, CONTACT_SECTION];
 
 /**
- * Todas las preguntas que PUEDE tener el recorrido de esos servicios, sin resolver condiciones: su consulta → situación
- * actual → un paso por servicio (en orden del catálogo) → objetivos y reunión → contacto.
+ * Todas las preguntas que PUEDE tener el recorrido de esos servicios, sin resolver condiciones: su consulta → qué está
+ * pasando → cómo trabajan hoy → un paso por servicio (en orden del catálogo) → alcance y reunión → contacto.
  */
 export function layoutSections(selected: readonly ServiceId[]): Section[] {
   const ordered = SERVICES.filter((s) => selected.includes(s.id));

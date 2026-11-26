@@ -100,18 +100,19 @@ describe('recorrido completo (63 combinaciones de servicios × 5 perfiles)', () 
 
   it('con cada texto libre al máximo, un servicio sigue dentro del límite y los seis lo superan (la interfaz avisa)', () => {
     // Peor caso realista: todas las preguntas posibles respondidas y cada texto en su límite (sin acentos).
-    const worstUrl = (selected: ServiceId[]) => {
+    const worstUrl = (selected: ServiceId[], locale: MessageInput['locale'] = 'es') => {
       const answers: Answers = { p_perfil: 'empresa' };
       for (const q of allQuestions(selected)) {
         if (q.id === 'p_perfil') continue;
         const max = q.maxLength ?? (q.type === 'textarea' ? site.maxTextLength : site.maxLineLength);
-        // En una de varias se marcan todas menos las exclusivas («No lo sé», «Con ninguna»…), que la interfaz deja solas.
-        const multi = () => q.options!.filter((o) => !o.exclusive).map((o) => o.id);
-        answers[q.id] = q.type === 'multi' ? multi() : q.type === 'single' ? q.options![0].id : 'a'.repeat(max);
+        // En una de varias se marcan todas menos las exclusivas («No lo sé», «Con ninguna»…), que la interfaz deja solas;
+        // con tope (`maxChoices`), las de texto más largo hasta el tope.
+        const longest = q.options?.filter((o) => !o.exclusive).sort((x, y) => y.label[locale].length - x.label[locale].length).map((o) => o.id) ?? [];
+        answers[q.id] = q.type === 'multi' ? longest.slice(0, q.maxChoices ?? longest.length) : q.type === 'single' ? q.options![0].id : 'a'.repeat(max);
       }
-      return buildWhatsAppUrl(buildMessage(inputFor(selected, answers))).length;
+      return buildWhatsAppUrl(buildMessage(inputFor(selected, answers, locale))).length;
     };
-    for (const s of SERVICES) expect(worstUrl([s.id]), s.id).toBeLessThan(SAFE_URL_LENGTH);
+    for (const s of SERVICES) for (const locale of LOCALES) expect(worstUrl([s.id], locale), `${s.id} ${locale}`).toBeLessThan(SAFE_URL_LENGTH);
     // Con todos los servicios y todos los textos al máximo se pasa del límite: SurveyView muestra un aviso en ese caso.
     expect(worstUrl(SERVICES.map((s) => s.id))).toBeGreaterThan(SAFE_URL_LENGTH);
   });
@@ -180,7 +181,8 @@ describe('vista previa fiel al mensaje', () => {
     expect(first.done).toBe(1);
     expect(some.done).toBe(3);
     expect(criticalProgress(buildSections(['ia'], everything), everything).done).toBe(first.total);
-    // Perfil, rubro, descripción, tamaño y necesidad + qué haría la IA + alcance y plazo + nombre y teléfono (sin correo).
-    expect(first.total).toBe(10);
+    // Perfil, rubro, descripción y tamaño + situación, impacto e intentos previos + qué haría la IA + alcance y plazo +
+    // nombre y teléfono (sin correo).
+    expect(first.total).toBe(12);
   });
 });

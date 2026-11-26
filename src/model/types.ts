@@ -56,6 +56,8 @@ export interface Question {
   id: string;
   type: FieldType;
   label: L10n;
+  /** Rótulo corto para el mensaje y la vista previa, cuando la pregunta es larga («Impacto», «Fortalezas»…). */
+  short?: L10n;
   help?: L10n;
   placeholder?: L10n;
   /**
@@ -69,6 +71,8 @@ export interface Question {
   format?: AnswerFormat;
   /** Tope propio de un campo de texto, menor que el general (`site.maxLineLength` / `site.maxTextLength`). */
   maxLength?: number;
+  /** En una pregunta de varias respuestas: cuántas se pueden marcar como máximo (obliga a priorizar). */
+  maxChoices?: number;
   options?: Option[];
   /** Pistas para el navegador en campos de texto: autocompletado y teclado del celular. */
   autoComplete?: string;

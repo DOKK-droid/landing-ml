@@ -14,9 +14,10 @@ import { LOCALES } from '@/model/types';
 
 /**
  * Cambia con cada versión del formulario que cambia las preguntas: v2 cambió el orden de los pasos; v4 cambió los ids y
- * las condiciones (un cursor o una respuesta de v3 apuntaría a otra pregunta). Un relevamiento a medias de otra versión se descarta.
+ * las condiciones (un cursor o una respuesta de v3 apuntaría a otra pregunta); v5 agregó el diagnóstico y movió secciones.
+ * Un relevamiento a medias de otra versión se descarta.
  */
-export const STORAGE_KEY = 'ml-relevamiento-v4';
+export const STORAGE_KEY = 'ml-relevamiento-v5';
 export const RESUME_ATTR = 'data-resume';
 
 /** Red de seguridad: si la hidratación tarda o falla, la landing se muestra igual pasado este tiempo. */

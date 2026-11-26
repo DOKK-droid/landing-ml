@@ -40,7 +40,7 @@ export interface Dictionary {
   approach: { title: string; items: string[] };
   survey: {
     step: (n: number, total: number) => string; back: string; next: string; review: string;
-    required: string; optional: string; fieldRequired: string; chooseOne: string; chooseAny: string; exit: string;
+    required: string; optional: string; fieldRequired: string; chooseOne: string; chooseAny: string; chooseUpTo: (n: number) => string; exit: string;
     section: (n: number, total: number) => string; question: (n: number, total: number) => string;
     skip: string; send: string; answerPlaceholder: string; enterHint: string; preparing: string;
     /** Error de formato de un texto (correo, teléfono, web) y sugerencia ante un error de tipeo en el correo. */
@@ -171,6 +171,7 @@ const es: Dictionary = {
     fieldRequired: 'Complete este dato para continuar.',
     chooseOne: 'Elija una opción.',
     chooseAny: 'Puede elegir varias.',
+    chooseUpTo: (n) => `Elija hasta ${n}.`,
     exit: 'Volver al inicio',
     section: (n, total) => `Sección ${n} de ${total}`,
     question: (n, total) => `Pregunta ${n} de ${total}`,
@@ -331,6 +332,7 @@ const pt: Dictionary = {
     fieldRequired: 'Preencha este dado para continuar.',
     chooseOne: 'Escolha uma opção.',
     chooseAny: 'Pode escolher várias.',
+    chooseUpTo: (n) => `Escolha até ${n}.`,
     exit: 'Voltar ao início',
     section: (n, total) => `Seção ${n} de ${total}`,
     question: (n, total) => `Pergunta ${n} de ${total}`,
@@ -491,6 +493,7 @@ const en: Dictionary = {
     fieldRequired: 'Please fill this in to continue.',
     chooseOne: 'Choose one option.',
     chooseAny: 'You can choose several.',
+    chooseUpTo: (n) => `Choose up to ${n}.`,
     exit: 'Back to home',
     section: (n, total) => `Section ${n} of ${total}`,
     question: (n, total) => `Question ${n} of ${total}`,

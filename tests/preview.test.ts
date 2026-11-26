@@ -20,16 +20,16 @@ function render(extra: Answers, locale: Locale = 'es', currentSectionId = 'consu
 
 describe('vista previa', () => {
   it('muestra el avance de datos clave y los pendientes', () => {
-    // IA para una empresa: perfil, rubro, descripción, tamaño, necesidad, qué haría la IA, alcance, plazo, nombre y un
-    // medio de contacto (sin correo, el teléfono).
+    // IA para una empresa: perfil, rubro, descripción, tamaño, situación, impacto, intentos previos, qué haría la IA,
+    // alcance, plazo, nombre y un medio de contacto (sin correo, el teléfono).
     const html = render({ p_descripcion: 'Ferretería' });
     expect(html).toContain('Vista previa del mensaje');
-    expect(html).toContain('Datos clave: 2 de 10');
+    expect(html).toContain('Datos clave: 2 de 12');
     expect(html).toContain('role="progressbar"');
     expect(html).toContain('aria-valuenow="2"');
-    expect(html).toContain('aria-valuemax="10"');
+    expect(html).toContain('aria-valuemax="12"');
     expect(html).toContain('Ferretería');
-    expect((html.match(/class="pv-pending"/g) ?? []).length).toBe(8); // los otros 8 datos críticos
+    expect((html.match(/class="pv-pending"/g) ?? []).length).toBe(10); // los otros 10 datos críticos
   });
 
   it('marca la sección actual y no la de los otros pasos', () => {
@@ -40,7 +40,7 @@ describe('vista previa', () => {
 
   it('cuando están todos los datos clave lo indica', () => {
     const answers: Answers = {
-      ...EMPRESA, p_industria: 'comercio', p_descripcion: 'x', p_tamano: '1-10', x_necesidad: 'x',
+      ...EMPRESA, p_industria: 'comercio', p_descripcion: 'x', p_tamano: '1-10', x_necesidad: 'x', x_impacto: ['tiempo'], x_intentos: 'no',
       a_objetivo: [getService('ia').questions[0].options![0].id], e_alcance: 'etapa', e_plazo: 'ya', p_nombre: 'Ana', p_correo: 'ana@x.com',
     };
     const sections = buildSections(['ia'], answers);

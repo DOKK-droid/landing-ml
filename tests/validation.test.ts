@@ -4,7 +4,8 @@ import { evaluate, references } from '@/model/conditions';
 import { allQuestions } from '@/model/catalog';
 import type { Condition } from '@/model/types';
 import { matchesFormat, normalizePhone, suggestEmail, validateQuestion } from '@/model/validation';
-import { toggleChoice } from '@/view/survey/Composer';
+import { choiceBlocked, toggleChoice } from '@/view/survey/Composer';
+import { sanitize } from '@/controller/surveyReducer';
 
 describe('condiciones', () => {
   const ctx = { services: ['ia', 'soporte'] as const, answers: { p_perfil: 'empresa', x_herramientas: ['papel', 'propio'], p_correo: '  ' } };
@@ -106,5 +107,29 @@ describe('opciones exclusivas', () => {
     expect(toggleChoice(herramientas, ['nose'], 'papel')).toEqual(['papel']);
     expect(toggleChoice(herramientas, ['papel'], 'planillas')).toEqual(['papel', 'planillas']);
     expect(toggleChoice(herramientas, ['papel', 'planillas'], 'papel')).toEqual(['planillas']);
+  });
+});
+
+describe('tope de opciones (priorizar)', () => {
+  const impacto = allQuestions(['gestion']).find((q) => q.id === 'x_impacto')!;
+  it('con el tope alcanzado no suma otra; desmarcando una, sí', () => {
+    expect(impacto.maxChoices).toBe(3);
+    const full = ['tiempo', 'errores', 'clientes'];
+    expect(toggleChoice(impacto, full, 'riesgo')).toEqual(full);
+    expect(choiceBlocked(impacto, full, 'riesgo')).toBe(true);
+    expect(choiceBlocked(impacto, full, 'tiempo')).toBe(false); // una marcada se puede desmarcar
+    expect(toggleChoice(impacto, toggleChoice(impacto, full, 'errores'), 'riesgo')).toEqual(['tiempo', 'clientes', 'riesgo']);
+  });
+
+  it('la exclusiva siempre se puede elegir y reemplaza a las demás', () => {
+    const full = ['tiempo', 'errores', 'clientes'];
+    expect(choiceBlocked(impacto, full, 'ninguno')).toBe(false);
+    expect(toggleChoice(impacto, full, 'ninguno')).toEqual(['ninguno']);
+    expect(choiceBlocked(impacto, ['ninguno'], 'tiempo')).toBe(false);
+  });
+
+  it('un estado guardado con más opciones que el tope se recorta al sanearlo', () => {
+    const s = sanitize({ phase: 'survey', selected: ['gestion'], cursor: 0, answers: { x_impacto: ['tiempo', 'errores', 'clientes', 'riesgo', 'crecer'] } });
+    expect(s.answers.x_impacto).toEqual(['tiempo', 'errores', 'clientes']);
   });
 });

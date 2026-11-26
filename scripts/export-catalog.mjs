@@ -1,7 +1,7 @@
 /* Exporta el catálogo del relevamiento a un JSON para que el servidor (app `landing_crm` de Frappe) valide lo que recibe.
  * Lleva solo lo que el servidor necesita: ids, tipos, obligatoriedad, condiciones, ids de opciones (con su valor de Frappe
- * CRM y si son exclusivas), formatos, topes de largo, la versión del formulario y los textos en español (con sus variantes)
- * para armar la nota legible del CRM. La fuente de verdad sigue siendo src/model/catalog.ts.
+ * CRM y si son exclusivas), formatos, topes de largo y de opciones, la versión del formulario y los textos en español (con
+ * sus variantes) para armar la nota legible del CRM. La fuente de verdad sigue siendo src/model/catalog.ts.
  *
  * Uso:  node scripts/export-catalog.mjs <catalog.json> [<catalog_cases.json>]
  * El segundo archivo, opcional, son casos calculados por el front (perfil × servicios × respuestas → preguntas visibles,
@@ -62,6 +62,7 @@ try {
     ...(q.variants?.some((v) => v.label) ? { variants: q.variants.filter((v) => v.label).map((v) => ({ when: v.when, label: v.label.es })) } : {}),
     ...(q.format ? { format: q.format } : {}),
     ...(q.maxLength ? { max_length: q.maxLength } : {}),
+    ...(q.maxChoices ? { max_choices: q.maxChoices } : {}),
     ...(q.options ? { options: q.options.map(option) } : {}),
   });
   const section = (s) => ({ title: s.title.es, questions: s.questions.map(question) });
@@ -87,22 +88,25 @@ try {
 
   if (casesOutput) {
     // Cada servicio solo, todos los pares y los seis juntos; para cada perfil; con respuestas que activan (A) o
-    // desactivan (B) las condiciones, y con respuestas que quedaron de preguntas ahora ocultas (C).
+    // desactivan (B) las condiciones, y con respuestas que quedaron de preguntas ahora ocultas (C). Cubren el diagnóstico
+    // (impacto, intentos previos y su «qué falló»), la información registrada, la IA sin tarea clara y Soporte.
     const ids = SERVICES.map((s) => s.id);
     const combos = [...ids.map((id) => [id]), ...ids.flatMap((a, i) => ids.slice(i + 1).map((b) => [a, b])), ids];
     const profiles = catalog.INQUIRY_SECTION.questions[0].options.map((opt) => opt.id);
     const answerSets = {
       A: {
-        x_herramientas: ['propio'], c_motivo: ['duda'], c_entregable: ['plan'], s_tipo: 'emergencia', s_modalidad: 'presencial',
-        s_equipo: ['pc'], x_integraciones: ['whatsapp'], d_funciones: ['reportes'], p_correo: '',
+        x_impacto: ['tiempo'], x_intentos: 'proveedor', x_intentos_falla: ['otro'], x_herramientas: ['propio'], c_entregable: ['plan'],
+        g_informacion: ['clientes'], a_objetivo: ['documentos'], s_tipo: 'emergencia', s_modalidad: 'presencial', s_equipo: ['pc'],
+        x_integraciones: ['mensajeria'], d_funciones: ['reportes'], p_correo: '',
       },
       B: {
-        x_herramientas: ['nada'], c_motivo: ['idea', 'otro'], c_entregable: ['otro'], s_tipo: 'puntual', s_modalidad: 'remota',
-        s_equipo: ['otro'], x_integraciones: ['otro'], d_funciones: ['otro'], a_objetivo: ['otro'], p_correo: 'a@b.com',
+        x_impacto: ['otro'], x_intentos: 'no', x_herramientas: ['nada'], c_entregable: ['otro'], i_sintomas: ['otro'], a_objetivo: ['explorar'],
+        s_tipo: 'puntual', s_modalidad: 'remota', s_equipo: ['otro'], x_integraciones: ['otro'], d_funciones: ['otro'], p_correo: 'a@b.com',
       },
       C: {
-        p_tamano: '11-50', x_herramientas: ['comercial'], x_sistema_actual: 'mejorar', c_motivo: ['duda'], c_entregable: ['otro'],
-        c_entregable_otro: 'queda de antes', s_tipo: 'periodico', s_sintoma: 'queda de antes', s_modalidad: 'indistinto', p_telefono: '+5491112345678',
+        p_tamano: '11-50', x_intentos: 'no', x_intentos_falla: ['otro'], x_intentos_falla_otro: 'queda de antes', x_herramientas: ['comercial'],
+        x_sistema_actual: 'mejorar', g_informacion: ['nada'], g_calidad: 'ordenada', s_tipo: 'periodico', s_sintoma: 'queda de antes',
+        s_modalidad: 'indistinto', p_telefono: '+5491112345678',
       },
     };
     const cases = [];

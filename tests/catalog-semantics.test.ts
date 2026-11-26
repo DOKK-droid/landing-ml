@@ -1,9 +1,10 @@
-/* La semántica del relevamiento v4, comprobada para los 5 perfiles × las 63 combinaciones de servicios:
+/* La semántica del relevamiento v5, comprobada para los 5 perfiles × las 63 combinaciones de servicios:
  *   · ningún dato se pregunta dos veces;
  *   · a ningún servicio le falta lo que necesita (la matriz de docs/RELEVAMIENTO.md), se elija solo o combinado;
  *   · una condición solo mira preguntas anteriores (responder cambia lo que sigue, nunca lo que ya pasó);
  *   · las opciones que van a Frappe CRM son exactamente las de Frappe;
- *   · los pares de preguntas que se podían deducir una de otra ya no conviven. */
+ *   · los pares de preguntas que se podían deducir una de otra ya no conviven;
+ *   · es un diagnóstico: fortalezas, puntos débiles, intentos previos y viabilidad, sin pedirle al cliente soluciones técnicas. */
 import { describe, expect, it } from 'vitest';
 import { references } from '@/model/conditions';
 import { allQuestions, buildSections, FRAPPE_EMPLOYEE_RANGES, INQUIRY_SECTION, SERVICES } from '@/model/catalog';
@@ -25,23 +26,31 @@ const BY_PROFILE: Record<string, string[]> = {
   independiente: ['p_industria', 'p_descripcion'],
   personal: [],
 };
+/** El diagnóstico, salvo con Soporte solo (ahí el pedido es concreto): lo que lo afecta o con qué cuenta, y qué intentó. */
+const DIAGNOSIS_BY_PROFILE: Record<string, string[]> = {
+  empresa: ['x_impacto', 'x_intentos'],
+  organizacion: ['x_impacto', 'x_intentos'],
+  independiente: ['x_impacto', 'x_intentos'],
+  proyecto: ['x_avance', 'x_intentos'],
+  personal: [],
+};
 const BY_SERVICE: Record<ServiceId, string[]> = {
-  consultoria: ['c_motivo', 'c_entregable'],
-  desarrollo: ['x_herramientas', 'x_sistema_actual', 'x_usuarios_ext', 'd_dispositivos'],
-  gestion: ['x_herramientas', 'x_sistema_actual', 'x_areas'],
-  infraestructura: ['i_necesidad', 'p_ubicacion'],
+  consultoria: ['c_entregable'],
+  desarrollo: ['x_herramientas', 'x_sistema_actual', 'x_usuarios_ext', 'd_definicion', 'd_dispositivos'],
+  gestion: ['x_herramientas', 'x_sistema_actual'],
+  infraestructura: ['i_sintomas', 'i_respaldo', 'p_ubicacion'],
   ia: ['a_objetivo'],
   soporte: ['s_tipo', 's_equipo', 's_modalidad', 'p_ubicacion'],
 };
-/** Lo que no aplica a un particular (no tiene equipo, sedes ni parque de equipos). */
+/** Lo que no aplica a un particular (no tiene equipo, sedes, parque de equipos ni áreas de trabajo). */
 const BY_SERVICE_UNLESS_PERSONAL: Partial<Record<ServiceId, string[]>> = {
-  desarrollo: ['x_usuarios_int'],
-  gestion: ['x_usuarios_int'],
-  infraestructura: ['x_sedes', 'x_equipos'],
+  desarrollo: ['x_usuarios_int', 'x_responsable'],
+  gestion: ['x_usuarios_int', 'x_areas', 'x_responsable'],
+  infraestructura: ['x_sedes', 'x_equipos', 'x_responsable', 'i_caida'],
 };
 
-/** Respuestas que activan las preguntas condicionales: un sistema actual, un motivo que no es solo una duda, una reparación presencial. */
-const RICH: Answers = { c_motivo: ['tiempo'], x_herramientas: ['comercial'], s_tipo: 'puntual', s_modalidad: 'presencial' };
+/** Respuestas que activan las preguntas condicionales: un sistema actual, un intento previo, una reparación presencial. */
+const RICH: Answers = { x_herramientas: ['comercial'], x_intentos: 'proveedor', s_tipo: 'puntual', s_modalidad: 'presencial' };
 
 function resolved(selected: ServiceId[], answers: Answers): Question[] {
   return buildSections(selected, answers).flatMap((s) => s.questions);
@@ -70,9 +79,11 @@ describe('a ningún servicio le falta lo crítico, solo o combinado', () => {
     for (const selected of COMBINATIONS) {
       const questions = resolved(selected, { ...RICH, p_perfil: profile });
       const required = new Set(questions.filter(isRequired).map((q) => q.id));
+      const onlySupport = selected.length === 1 && selected[0] === 'soporte';
       const expected = [
         ...ALWAYS,
         ...BY_PROFILE[profile],
+        ...(onlySupport ? [] : DIAGNOSIS_BY_PROFILE[profile]),
         ...selected.flatMap((id) => BY_SERVICE[id]),
         ...(profile === 'personal' ? [] : selected.flatMap((id) => BY_SERVICE_UNLESS_PERSONAL[id] ?? [])),
       ];
@@ -123,9 +134,66 @@ describe('las condiciones solo miran hacia atrás', () => {
 describe('pares que se podían deducir uno del otro', () => {
   const base: Answers = { p_perfil: 'empresa' };
 
-  it('con solo una duda puntual no se pregunta qué quiere llevarse de la consultoría', () => {
-    expect(visibleIds(['consultoria'], { ...base, c_motivo: ['duda'] })).not.toContain('c_entregable');
-    expect(visibleIds(['consultoria'], { ...base, c_motivo: ['duda', 'idea'] })).toContain('c_entregable');
+  it('el motivo se cuenta una vez, en el diagnóstico: Consultoría solo pregunta qué espera llevarse', () => {
+    const ids = visibleIds(['consultoria', 'desarrollo', 'ia'], base);
+    expect(ids.filter((id) => /^(x_necesidad|c_motivo|d_problema|a_tarea)$/.test(id))).toEqual(['x_necesidad']);
+    expect(ids).toContain('c_entregable');
+  });
+
+  it('lo que pasa hoy (`x_necesidad`) y lo que quiere lograr (`x_objetivos`) son preguntas distintas, en ese orden', () => {
+    const ids = visibleIds(['gestion'], base);
+    expect(ids.indexOf('x_necesidad')).toBeLessThan(ids.indexOf('x_objetivos'));
+    const necesidad = allQuestions(['gestion']).find((q) => q.id === 'x_necesidad')!;
+    expect(necesidad.label.es).not.toMatch(/lograr|objetivo/i);
+  });
+
+  it('un proyecto nuevo no tiene «cómo lo afecta» ni fortalezas de una operación: dice con qué cuenta', () => {
+    const ids = visibleIds(['desarrollo'], { p_perfil: 'proyecto' });
+    expect(ids).toContain('x_avance');
+    expect(ids).not.toContain('x_impacto');
+    expect(ids).not.toContain('x_fortalezas');
+    expect(visibleIds(['desarrollo'], base)).not.toContain('x_avance');
+  });
+
+  it('qué no funcionó, solo si ya lo intentó', () => {
+    expect(visibleIds(['gestion'], { ...base, x_intentos: 'no' })).not.toContain('x_intentos_falla');
+    for (const tried of ['propio', 'proveedor', 'curso']) expect(visibleIds(['gestion'], { ...base, x_intentos: tried })).toContain('x_intentos_falla');
+  });
+
+  it('Soporte solo es un pedido concreto: sin diagnóstico ni preocupaciones, solo la pregunta abierta', () => {
+    const ids = visibleIds(['soporte'], base);
+    for (const id of ['x_impacto', 'x_fortalezas', 'x_intentos', 'x_objetivos', 'e_preocupaciones']) expect(ids).not.toContain(id);
+    expect(ids).toContain('x_necesidad');
+  });
+
+  it('a un particular no se le pregunta por su operación (impacto, fortalezas, áreas, responsable)', () => {
+    const ids = visibleIds(['gestion', 'infraestructura'], { p_perfil: 'personal' });
+    for (const id of ['x_impacto', 'x_fortalezas', 'x_areas', 'x_intentos', 'x_responsable', 'i_caida', 'e_dedicacion']) expect(ids).not.toContain(id);
+  });
+
+  it('nada técnico: Infraestructura pregunta síntomas y consecuencias, no qué instalar', () => {
+    const infra = allQuestions(['infraestructura']).filter((q) => q.id.startsWith('i_'));
+    const words = infra.flatMap((q) => [q.label.es, ...(q.options ?? []).map((o) => o.label.es)]).join(' ').toLowerCase();
+    for (const jargon of ['nube', 'servidor', 'almacenamiento', 'backup', 'cableado']) expect(words, jargon).not.toContain(jargon);
+  });
+
+  it('con IA sin una tarea clara no se pregunta frecuencia ni gravedad de un error', () => {
+    const ids = visibleIds(['ia'], { ...base, a_objetivo: ['explorar'] });
+    expect(ids).not.toContain('a_volumen');
+    expect(ids).not.toContain('a_error');
+    expect(ids).toContain('a_datos');
+    expect(visibleIds(['ia'], { ...base, a_objetivo: ['documentos'] })).toContain('a_error');
+  });
+
+  it('la calidad de la información solo si hay información registrada', () => {
+    expect(visibleIds(['gestion'], { ...base, x_herramientas: ['planillas'] })).not.toContain('g_calidad');
+    expect(visibleIds(['gestion'], { ...base, x_herramientas: ['planillas'], g_informacion: ['nada'] })).not.toContain('g_calidad');
+    expect(visibleIds(['gestion'], { ...base, x_herramientas: ['planillas'], g_informacion: ['clientes'] })).toContain('g_calidad');
+  });
+
+  it('las fortalezas no repiten lo que ya tiene su pregunta (información ordenada, un sistema que funciona)', () => {
+    const fortalezas = allQuestions(['gestion']).find((q) => q.id === 'x_fortalezas')!.options!.map((o) => o.label.es.toLowerCase()).join(' ');
+    for (const word of ['información', 'sistema', 'herramienta']) expect(fortalezas, word).not.toContain(word);
   });
 
   it('qué hacer con el sistema actual, solo si hay un sistema', () => {
@@ -133,9 +201,9 @@ describe('pares que se podían deducir uno del otro', () => {
     expect(visibleIds(['desarrollo'], { ...base, x_herramientas: ['propio'] })).toContain('x_sistema_actual');
   });
 
-  it('si hoy no usan nada, no hay información que migrar', () => {
-    expect(visibleIds(['gestion'], { ...base, x_herramientas: ['nada'] })).not.toContain('g_migracion');
-    expect(visibleIds(['gestion'], { ...base, x_herramientas: ['planillas'] })).toContain('g_migracion');
+  it('si hoy no usan nada, no hay información registrada que preguntar', () => {
+    expect(visibleIds(['gestion'], { ...base, x_herramientas: ['nada'] })).not.toContain('g_informacion');
+    expect(visibleIds(['gestion'], { ...base, x_herramientas: ['planillas'] })).toContain('g_informacion');
   });
 
   it('las sedes se preguntan una vez y los equipos se cuentan aparte de las personas', () => {
@@ -169,9 +237,9 @@ describe('pares que se podían deducir uno del otro', () => {
     expect(visibleIds(['ia'], base)).toContain('e_decisor');
   });
 
-  it('pagos y avisos por WhatsApp son integraciones; turnos, un área: no se repiten en las funciones del software', () => {
+  it('las funciones del software no repiten un área (turnos, stock como área) ni un canal (WhatsApp)', () => {
     const funciones = allQuestions(['desarrollo']).find((q) => q.id === 'd_funciones')!.options!.map((o) => o.label.es.toLowerCase());
-    for (const word of ['pago', 'whatsapp', 'turno', 'reserva']) expect(funciones.join(' '), word).not.toContain(word);
+    for (const word of ['whatsapp', 'turno', 'reserva', 'facturación']) expect(funciones.join(' '), word).not.toContain(word);
   });
 
   it('la ciudad es obligatoria solo si hay trabajo en el lugar', () => {
@@ -183,12 +251,12 @@ describe('pares que se podían deducir uno del otro', () => {
   });
 
   it('una respuesta que quedó de una pregunta ahora oculta no cuenta', () => {
-    // Respondió el tamaño y «Otro» como entregable; después cambió a uso personal y a una duda puntual: esas dos ya no se hacen.
-    const answers: Answers = { p_perfil: 'personal', p_tamano: '11-50', c_motivo: ['duda'], c_entregable: ['otro'], c_entregable_otro: 'x' };
+    // Respondió el tamaño, un intento con otro proveedor y «Otro» como falla; después cambió a uso personal: ya no se hacen.
+    const answers: Answers = { p_perfil: 'personal', p_tamano: '11-50', x_intentos: 'proveedor', x_intentos_falla: ['otro'], x_intentos_falla_otro: 'x' };
     const ids = visibleIds(['consultoria'], answers);
     expect(ids).not.toContain('p_tamano');
-    expect(ids).not.toContain('c_entregable');
-    expect(ids).not.toContain('c_entregable_otro'); // su «¿cuál?» se va con ella
+    expect(ids).not.toContain('x_intentos_falla');
+    expect(ids).not.toContain('x_intentos_falla_otro'); // su «¿cuál?» se va con ella
   });
 });
 
@@ -242,6 +310,24 @@ describe('controles de las opciones', () => {
   it('las opciones exclusivas solo existen en preguntas de varias respuestas', () => {
     for (const q of allQuestions(ALL)) {
       if (q.options?.some((o) => o.exclusive)) expect(q.type, q.id).toBe('multi');
+    }
+  });
+
+  it('el tope de opciones solo en preguntas de varias, y menor que la cantidad de opciones', () => {
+    for (const q of allQuestions(ALL)) {
+      if (q.maxChoices === undefined) continue;
+      expect(q.type, q.id).toBe('multi');
+      expect(q.maxChoices, q.id).toBeLessThan(q.options!.filter((o) => !o.exclusive).length);
+    }
+  });
+
+  it('los rótulos cortos del mensaje existen en los tres idiomas y son más cortos que la pregunta', () => {
+    for (const q of allQuestions(ALL)) {
+      if (!q.short) continue;
+      for (const locale of ['es', 'pt', 'en'] as const) {
+        expect(q.short[locale], `${q.id} ${locale}`).toBeTruthy();
+        expect(q.short[locale].length, `${q.id} ${locale}`).toBeLessThan(q.label[locale].length);
+      }
     }
   });
 });

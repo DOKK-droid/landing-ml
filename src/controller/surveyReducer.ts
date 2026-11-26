@@ -176,7 +176,7 @@ function sanitizeAnswers(raw: unknown, questions: Question[]): Answers {
       if (!Array.isArray(value)) continue;
       const ids = [...new Set(value.filter((id): id is string => typeof id === 'string'))]
         .map((id) => id.slice(0, MAX_OPTION_ID))
-        .slice(0, question.options?.length ?? 0);
+        .slice(0, question.maxChoices ?? question.options?.length ?? 0);
       if (ids.length) answers[question.id] = ids;
     } else if (typeof value === 'string') {
       const max = question.type === 'textarea' ? site.maxTextLength : question.type === 'text' ? (question.maxLength ?? site.maxLineLength) : MAX_OPTION_ID;
