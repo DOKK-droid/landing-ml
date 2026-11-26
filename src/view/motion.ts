@@ -79,19 +79,28 @@ export type SwapPhase = 'ready' | 'leaving' | 'typing';
  * "escribiendo…" (`typingMs`) y entra el nuevo. `shown` es lo que hay que dibujar en cada momento y `phase`
  * en qué punto de la secuencia está. Al volver atrás (`order` menor) no se simula que se escribe.
  * Con "reducir movimiento" el cambio es inmediato y no hay indicador.
+ *
+ * Qué cuenta como contenido nuevo lo dice `key` (la pregunta), no la identidad de `value`: el recorrido se rearma con
+ * cada tecla (las preguntas dependen de las respuestas), así que la misma pregunta llega como otro objeto a cada
+ * carácter. Compararlos por identidad disparaba la salida y el "escribiendo…" mientras se escribía, y el campo,
+ * bloqueado durante la salida, perdía letras. Con la misma clave se muestra la versión más nueva, sin transición.
  */
-export function useSwap<T>(value: T, order: number, exitMs: number, typingMs: number): { shown: T; phase: SwapPhase } {
-  const [shown, setShown] = useState(value);
+export function useSwap<T>(value: T, key: string, order: number, exitMs: number, typingMs: number): { shown: T; phase: SwapPhase } {
+  const [shownKey, setShownKey] = useState(key);
   // Al montar también se "escribe" la primera pregunta, para que la conversación arranque igual que sigue.
   const [typing, setTyping] = useState(() => !prefersReducedMotion());
   const shownOrder = useRef(order);
+  /** Lo último que se mostró de la clave en pantalla: es lo que se ve mientras sale. */
+  const shownValue = useRef(value);
+  const leaving = key !== shownKey;
+  if (!leaving) shownValue.current = value;
 
   useEffect(() => {
-    if (value === shown) return;
+    if (key === shownKey) return;
     const swap = () => {
       const forward = order >= shownOrder.current;
       shownOrder.current = order;
-      setShown(value);
+      setShownKey(key);
       setTyping(forward && !prefersReducedMotion());
     };
     if (prefersReducedMotion()) {
@@ -100,7 +109,7 @@ export function useSwap<T>(value: T, order: number, exitMs: number, typingMs: nu
     }
     const t = window.setTimeout(swap, exitMs);
     return () => window.clearTimeout(t);
-  }, [value, order, shown, exitMs]);
+  }, [key, order, shownKey, exitMs]);
 
   useEffect(() => {
     if (!typing) return;
@@ -108,5 +117,5 @@ export function useSwap<T>(value: T, order: number, exitMs: number, typingMs: nu
     return () => window.clearTimeout(t);
   }, [typing, typingMs]);
 
-  return { shown, phase: shown !== value ? 'leaving' : typing ? 'typing' : 'ready' };
+  return { shown: leaving ? shownValue.current : value, phase: leaving ? 'leaving' : typing ? 'typing' : 'ready' };
 }

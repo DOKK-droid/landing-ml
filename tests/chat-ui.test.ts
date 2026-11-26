@@ -170,7 +170,7 @@ describe('una pregunta por vez', () => {
   it('la ayuda de la pregunta se ve y describe el campo', async () => {
     await startAtText();
     const help = $('.bubble__help')!;
-    expect(help.textContent).toBe('Solo qué hace. Lo que necesita resolver se lo preguntamos enseguida.');
+    expect(help.textContent).toBe('Por ejemplo: «Distribuidora de alimentos para almacenes de zona norte». Lo que necesita resolver se lo preguntamos más adelante.');
     expect($('.answer__row input')?.getAttribute('aria-describedby')).toBe(help.id);
   });
 
@@ -182,6 +182,7 @@ describe('una pregunta por vez', () => {
     expect(question()).toBe('¿En qué rubro está el proyecto?');
     await pickFirstChip();
     expect(question()).toBe('En una frase: ¿de qué se trata el proyecto y para quién es?');
+    expect(text('.bubble__help')).toMatch(/^Por ejemplo: «Una app para reservar turnos/); // el ejemplo, entero, en la ayuda
   });
 
   it('un particular no ve rubro, descripción ni tamaño', async () => {
@@ -345,7 +346,7 @@ describe('datos de contacto', () => {
     await skip();
     expect(stageId()).toBe('p_telefono');
     expect(text('.bubble__meta')).toContain('Obligatorio');
-    expect(text('.bubble__help')).toBe('Sin correo, necesitamos un teléfono para contactarlo.');
+    expect(text('.bubble__help')).toBe('Como no dejó correo, necesitamos un teléfono para contactarlo.');
     expect($('.answer__row input')?.getAttribute('type')).toBe('tel');
     await typeInto($<HTMLInputElement>('.answer__row input')!, '1234');
     await click($('.answer__send'));
@@ -504,6 +505,33 @@ describe('la transición entre preguntas (con animaciones)', () => {
     await tick(EXIT_MS + 5);
     expect($('.bubble--typing')).toBeNull();
     expect(stageId()).toBe('p_perfil');
+  });
+
+  it('escribir una respuesta no es una pregunta nueva: ni "escribiendo…", ni campo bloqueado, ni letras perdidas', async () => {
+    // El recorrido se rearma con cada tecla (v4): la misma pregunta llega como otro objeto a cada carácter.
+    await mountAt('p_descripcion', { p_perfil: 'empresa', p_industria: 'comercio' });
+    await tick(TYPING_MS + 10);
+    expect(stageId()).toBe('p_descripcion');
+    const word = 'Ferretería de barrio';
+    for (let i = 1; i <= word.length; i++) {
+      await typeInto($<HTMLInputElement>('.answer__row input')!, word.slice(0, i));
+      await tick(EXIT_MS + TYPING_MS + 10);
+      expect($('.bubble--typing'), `letra ${i}`).toBeNull();
+      expect($('.composer__stage')?.hasAttribute('inert'), `letra ${i}`).toBe(false);
+    }
+    expect($<HTMLInputElement>('.answer__row input')?.value).toBe(word);
+    expect($('[data-q="p_descripcion"]')?.textContent).toContain(word);
+  });
+
+  it('lo que se responde puede cambiar las preguntas siguientes sin animar la actual', async () => {
+    // Sin correo, el teléfono es obligatorio: escribir el correo cambia la pregunta siguiente, no la actual.
+    await mountAt('p_correo', { p_perfil: 'empresa', p_industria: 'comercio', p_descripcion: 'x', p_tamano: '1-10', x_necesidad: 'x', a_objetivo: ['documentos'], e_alcance: 'etapa', e_plazo: 'ya', p_nombre: 'Ana' });
+    await tick(TYPING_MS + 10);
+    await typeInto($<HTMLInputElement>('.answer__row input')!, 'ana@empresa.com');
+    await tick(EXIT_MS + TYPING_MS + 10);
+    expect(stageId()).toBe('p_correo');
+    expect($('.bubble--typing')).toBeNull();
+    expect($('.composer__stage')?.hasAttribute('inert')).toBe(false);
   });
 
   it('con "reducir movimiento" el cambio es inmediato y no hay indicador', async () => {

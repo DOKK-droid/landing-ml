@@ -142,6 +142,7 @@ Encontrados por las pruebas nuevas y ya corregidos:
 1. **Respuestas obsoletas contaban como completas.** Una opción cuyo id ya no existe en el catálogo pasaba la validación pero el mensaje la omitía, así que el cliente podía enviar sin saber que faltaba un dato crítico. Ahora no cuenta como respondida.
 2. **Texto de la vista previa con secciones vacías.** Convertir a texto una lista con pendientes dejaba encabezados sin contenido. El mensaje enviado no se veía afectado, pero la conversión ahora es consistente.
 3. **Límite de 600 caracteres en campos de una línea.** Nombre, correo y ciudad admitían lo mismo que un texto largo y empujaban el enlace de WhatsApp hacia el límite. Ahora son 120 (`site.maxLineLength`).
+5. **(v4) Al escribir aparecía el «escribiendo…» y se perdían letras.** Desde v4 el recorrido se rearma con cada tecla, y la transición entre preguntas (`useSwap`) comparaba la pregunta por identidad del objeto: cada carácter parecía una pregunta nueva. Ahora la transición es por id de pregunta. Las pruebas no lo veían porque corren con «reducir movimiento»; `chat-ui.test.ts` tiene dos casos con animaciones que escriben letra por letra.
 4. **El relevamiento guardado se pisaba en desarrollo** (Strict Mode ejecuta los efectos dos veces). Corregido en la iteración anterior: no se guarda nada hasta terminar de restaurar.
 
 Límite conocido: con los seis servicios y todos los textos al máximo, el enlace supera los 6000 caracteres; la interfaz avisa y el cliente puede acortar o copiar el mensaje.

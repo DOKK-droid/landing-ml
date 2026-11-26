@@ -139,7 +139,7 @@ describe('mensaje de WhatsApp', () => {
     expect(msg).toContain('ML-261118-ABCD');
     expect(msg).toContain('*Servicios de interés:* Gestión & Integraciones');
     expect(msg).toContain('• Para quién es la consulta: Una empresa o comercio en marcha');
-    expect(msg).toContain('• Qué áreas del trabajo abarca: Ventas y presupuestos, Stock e inventario');
+    expect(msg).toContain('• Qué áreas de su trabajo tendría que cubrir el sistema: Ventas y presupuestos, Stock e inventario');
     expect(msg).toContain('• Cuántas personas trabajan en la empresa: 11 a 50');
     expect(msg).toContain('• Desde cuántos lugares trabajan: 2 o 3');
     expect(msg).toContain('Mañana, Tarde');

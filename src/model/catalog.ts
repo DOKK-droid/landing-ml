@@ -97,9 +97,9 @@ export const SERVICES: Service[] = [
       'To prepare the meeting, it helps to know what question or project you have in mind, how it is handled today and what decision you need to make.',
     ),
     stepIntro: t(
-      'Para preparar la reunión: qué lo trae y qué espera llevarse.',
-      'Para preparar a reunião: o que o traz e o que espera levar.',
-      'To prepare the meeting: what brings you here and what you expect to take away.',
+      'Para preparar la reunión: por qué consulta y qué espera obtener.',
+      'Para preparar a reunião: por que está consultando e o que espera obter.',
+      'To prepare the meeting: why you are reaching out and what you hope to get.',
     ),
     questions: [
       ...withOther(
@@ -161,9 +161,9 @@ export const SERVICES: Service[] = [
       'It helps to know what problem the system must solve, who will use it and what it absolutely has to do.',
     ),
     stepIntro: t(
-      'Lo propio del software: qué tiene que hacer y desde dónde se usaría.',
-      'O específico do software: o que precisa fazer e de onde seria usado.',
-      'Software specifics: what it must do and where it would be used.',
+      'Sobre el sistema que necesita: qué tiene que hacer y desde dónde se usaría.',
+      'Sobre o sistema que você precisa: o que ele deve fazer e de onde seria usado.',
+      'About the system you need: what it must do and where it would be used.',
     ),
     questions: [
       ...withOther(
@@ -218,9 +218,9 @@ export const SERVICES: Service[] = [
       'It helps to know which areas you want to organize, how they are handled today and which tools must keep working.',
     ),
     stepIntro: t(
-      'Lo propio de la plataforma de gestión: qué información hay que traer.',
-      'O específico da plataforma de gestão: que informações trazer.',
-      'Management platform specifics: which information needs to come over.',
+      'Sobre la plataforma de gestión: qué información de hoy habría que pasar al sistema nuevo.',
+      'Sobre a plataforma de gestão: que informações de hoje precisariam ir para o sistema novo.',
+      'About the management platform: which of your current information would move to the new system.',
     ),
     questions: [
       {
@@ -263,9 +263,9 @@ export const SERVICES: Service[] = [
       'It helps to know what you need, how many devices and locations there are, and what problems you notice today.',
     ),
     stepIntro: t(
-      'Lo propio de la infraestructura: qué hay que resolver.',
-      'O específico da infraestrutura: o que precisa ser resolvido.',
-      'Infrastructure specifics: what needs to be solved.',
+      'Sobre la infraestructura: qué necesita instalar, mejorar o proteger.',
+      'Sobre a infraestrutura: o que precisa instalar, melhorar ou proteger.',
+      'About the infrastructure: what you need to install, improve or protect.',
     ),
     questions: [
       {
@@ -306,9 +306,9 @@ export const SERVICES: Service[] = [
       'It helps to know which task is done by hand today, how often, and whether examples have been kept.',
     ),
     stepIntro: t(
-      'Lo propio de la inteligencia artificial: qué tarea haría, cada cuánto y con qué ejemplos.',
-      'O específico da inteligência artificial: que tarefa faria, com que frequência e com quais exemplos.',
-      'AI specifics: what task it would do, how often and with which examples.',
+      'Sobre la inteligencia artificial: qué tarea haría, cada cuánto y si tienen ejemplos guardados.',
+      'Sobre a inteligência artificial: que tarefa faria, com que frequência e se há exemplos guardados.',
+      'About artificial intelligence: what task it would do, how often, and whether you have saved examples.',
     ),
     questions: [
       ...withOther(
@@ -376,9 +376,9 @@ export const SERVICES: Service[] = [
       'It helps to know whether it is an emergency or maintenance, which equipment is involved, what is happening and whether you prefer remote or on-site service.',
     ),
     stepIntro: t(
-      'Lo propio del soporte: qué tipo de atención, qué equipo y cómo prefiere que lo atendamos.',
-      'O específico do suporte: que tipo de atendimento, qual equipamento e como prefere ser atendido.',
-      'Support specifics: what kind of service, which equipment and how you prefer to be served.',
+      'Sobre la atención técnica: qué tipo de ayuda necesita, con qué equipo y si la prefiere presencial o a distancia.',
+      'Sobre o atendimento técnico: que tipo de ajuda precisa, com qual equipamento e se prefere presencial ou remoto.',
+      'About technical support: what kind of help you need, with which equipment, and whether on-site or remote.',
     ),
     questions: [
       {
@@ -434,18 +434,18 @@ export const INQUIRY_SECTION: Section = {
   color: '#e8edf4',
   title: t('Su consulta', 'Sua consulta', 'Your inquiry'),
   intro: t(
-    'Unos datos rápidos para saber quién consulta y qué necesita.',
-    'Alguns dados rápidos para saber quem consulta e do que precisa.',
-    'A few quick details about who is asking and what you need.',
+    'Primero, quién consulta y qué necesita. Son pocas preguntas.',
+    'Primeiro, quem está consultando e do que precisa. São poucas perguntas.',
+    'First, who is asking and what you need. Just a few questions.',
   ),
   questions: [
     {
       id: PROFILE_QUESTION, type: 'single', required: true,
       label: t('¿Para quién es la consulta?', 'Para quem é a consulta?', 'Who is this inquiry for?'),
       help: t(
-        'Si es un proyecto dentro de una empresa que ya funciona, elija la empresa.',
-        'Se for um projeto dentro de uma empresa que já funciona, escolha a empresa.',
-        'If it is a project inside an existing company, choose the company.',
+        '¿Es un proyecto nuevo de una empresa que ya funciona? Elija «Una empresa o comercio en marcha».',
+        'É um projeto novo de uma empresa que já funciona? Escolha «Uma empresa ou comércio em funcionamento».',
+        'Is it a new project of a company that already operates? Choose "A company or business already operating".',
       ),
       options: [
         o('empresa', 'Una empresa o comercio en marcha', 'Uma empresa ou comércio em funcionamento', 'A company or business already operating', { crm: 'Empresa' }),
@@ -483,26 +483,38 @@ export const INQUIRY_SECTION: Section = {
       id: 'p_descripcion', type: 'text', required: true, showIf: NOT_PERSONAL, maxLength: 160, autoComplete: 'off',
       label: t('En una frase: ¿a qué se dedica la empresa y para quién?', 'Em uma frase: o que a empresa faz e para quem?', 'In one sentence: what does the company do, and for whom?'),
       help: t(
-        'Solo qué hace. Lo que necesita resolver se lo preguntamos enseguida.',
-        'Só o que faz. O que precisa resolver perguntamos em seguida.',
-        'Just what it does. We will ask what you need right after.',
+        'Por ejemplo: «Distribuidora de alimentos para almacenes de zona norte». Lo que necesita resolver se lo preguntamos más adelante.',
+        'Por exemplo: «Distribuidora de alimentos para mercados da zona norte». O que precisa resolver perguntamos mais adiante.',
+        'For example: "Food distributor supplying corner shops in the north side". We will ask what you need to solve later on.',
       ),
-      placeholder: t('Ej.: distribuidora de alimentos para almacenes de zona norte', 'Ex.: distribuidora de alimentos para mercados da zona norte', 'E.g.: food distributor supplying corner shops in the north side'),
+      placeholder: t('Escriba una frase', 'Escreva uma frase', 'Write one sentence'),
       variants: [
         {
           when: profileIs('organizacion'),
           label: t('En una frase: ¿qué hace la organización y para quién?', 'Em uma frase: o que a organização faz e para quem?', 'In one sentence: what does the organization do, and for whom?'),
-          placeholder: t('Ej.: fundación que da apoyo escolar a 300 chicos del barrio', 'Ex.: fundação que dá reforço escolar a 300 crianças do bairro', 'E.g.: a foundation that tutors 300 local kids'),
+          help: t(
+            'Por ejemplo: «Fundación que da apoyo escolar a 300 chicos del barrio». Lo que necesita resolver se lo preguntamos más adelante.',
+            'Por exemplo: «Fundação que dá reforço escolar a 300 crianças do bairro». O que precisa resolver perguntamos mais adiante.',
+            'For example: "A foundation that tutors 300 local kids". We will ask what you need to solve later on.',
+          ),
         },
         {
           when: profileIs('independiente'),
           label: t('En una frase: ¿a qué se dedica y para quién trabaja?', 'Em uma frase: o que você faz e para quem trabalha?', 'In one sentence: what do you do, and who do you work for?'),
-          placeholder: t('Ej.: arquitecta, hago reformas para particulares', 'Ex.: arquiteta, faço reformas para clientes particulares', 'E.g.: architect doing home renovations for private clients'),
+          help: t(
+            'Por ejemplo: «Arquitecta, hago reformas para particulares». Lo que necesita resolver se lo preguntamos más adelante.',
+            'Por exemplo: «Arquiteta, faço reformas para clientes particulares». O que precisa resolver perguntamos mais adiante.',
+            'For example: "Architect doing home renovations for private clients". We will ask what you need to solve later on.',
+          ),
         },
         {
           when: profileIs('proyecto'),
           label: t('En una frase: ¿de qué se trata el proyecto y para quién es?', 'Em uma frase: do que se trata o projeto e para quem é?', 'In one sentence: what is the project, and who is it for?'),
-          placeholder: t('Ej.: una app para reservar turnos en peluquerías de barrio', 'Ex.: um app para agendar horários em salões de bairro', 'E.g.: an app to book appointments at local hair salons'),
+          help: t(
+            'Por ejemplo: «Una app para reservar turnos en peluquerías de barrio». Lo que necesita resolver se lo preguntamos más adelante.',
+            'Por exemplo: «Um app para agendar horários em salões de bairro». O que precisa resolver perguntamos mais adiante.',
+            'For example: "An app to book appointments at local hair salons". We will ask what you need to solve later on.',
+          ),
         },
       ],
     },
@@ -522,18 +534,18 @@ export const INQUIRY_SECTION: Section = {
       id: 'x_necesidad', type: 'textarea', required: true,
       label: t('¿Qué necesita resolver o lograr?', 'O que precisa resolver ou alcançar?', 'What do you need to solve or achieve?'),
       help: t(
-        'Lo que pasa hoy o lo que quiere lograr, con sus palabras.',
-        'O que acontece hoje ou o que quer alcançar, com suas palavras.',
-        'What happens today or what you want to achieve, in your own words.',
+        'Cuéntelo con sus palabras: qué pasa hoy o qué le gustaría lograr.',
+        'Conte com suas palavras: o que acontece hoje ou o que gostaria de alcançar.',
+        'In your own words: what happens today, or what you would like to achieve.',
       ),
       variants: [
         { when: ONLY_SUPPORT, label: t('¿Qué necesita? Si algo falla, cuente qué pasa.', 'Do que precisa? Se algo está falhando, conte o que acontece.', 'What do you need? If something is failing, tell us what happens.') },
         {
           when: { minServices: 2 },
           help: t(
-            'Eligió varios servicios: puede contarlo todo junto. Lo propio de cada uno se pregunta después.',
-            'Escolheu vários serviços: pode contar tudo junto. O específico de cada um vem depois.',
-            'You chose several services: you can describe it all together. Specifics for each come next.',
+            'Eligió varios servicios: cuente todo en esta misma respuesta. Después hay unas preguntas cortas sobre cada uno.',
+            'Escolheu vários serviços: conte tudo nesta mesma resposta. Depois vêm algumas perguntas curtas sobre cada um.',
+            'You chose several services: describe everything in this one answer. A few short questions about each one follow.',
           ),
         },
         // Ejemplo según el primer servicio elegido (en el orden del catálogo).
@@ -555,9 +567,9 @@ export const CONTEXT_SECTION: Section = {
   color: '#a8b3c7',
   title: t('Situación actual', 'Situação atual', 'Current situation'),
   intro: t(
-    'Estos datos se piden una sola vez, aunque haya elegido varios servicios.',
-    'Estes dados são pedidos uma única vez, mesmo que tenha escolhido vários serviços.',
-    'These details are asked only once, even if you chose several services.',
+    'Unas preguntas rápidas, de opciones, sobre cómo se organizan hoy.',
+    'Algumas perguntas rápidas, de opções, sobre como se organizam hoje.',
+    'A few quick multiple-choice questions about how you work today.',
   ),
   questions: [
     shared(
@@ -598,7 +610,7 @@ export const CONTEXT_SECTION: Section = {
     shared(
       {
         id: 'x_areas', type: 'multi',
-        label: t('¿Qué áreas del trabajo abarca?', 'Quais áreas do trabalho abrange?', 'Which areas of the work does it cover?'),
+        label: t('¿Qué áreas de su trabajo tendría que cubrir el sistema?', 'Quais áreas do seu trabalho o sistema deveria cobrir?', 'Which areas of your work should the system cover?'),
         options: [
           o('ventas', 'Ventas y presupuestos', 'Vendas e orçamentos', 'Sales and quotes'),
           o('clientes', 'Clientes y seguimiento', 'Clientes e acompanhamento', 'Customers and follow-up'),
@@ -618,7 +630,12 @@ export const CONTEXT_SECTION: Section = {
         {
           // «Otras» herramientas: el sistema actual ya tiene su pregunta, y las planillas son algo a migrar, no a conectar.
           id: 'x_integraciones', type: 'multi',
-          label: t('¿Con qué otras herramientas tiene que conectarse?', 'Com quais outras ferramentas precisa se conectar?', 'What other tools does it need to connect to?'),
+          label: t('¿Con qué otras herramientas tendría que conectarse?', 'Com quais outras ferramentas precisaria se conectar?', 'What other tools would it need to connect to?'),
+          help: t(
+            'Por ejemplo, que una venta en la tienda online llegue sola a la facturación.',
+            'Por exemplo, que uma venda na loja online chegue sozinha ao faturamento.',
+            'For example, an online store sale reaching invoicing on its own.',
+          ),
           options: [
             o('tienda', 'Tienda online o marketplace', 'Loja online ou marketplace', 'Online store or marketplace'),
             o('facturacion', 'Facturación electrónica', 'Nota fiscal eletrônica', 'E-invoicing'),
@@ -639,7 +656,7 @@ export const CONTEXT_SECTION: Section = {
       {
         // Mismos rangos que el tamaño (los de Frappe): se pueden comparar. Los de afuera van aparte (visitantes web, clientes).
         id: 'x_usuarios_int', type: 'single',
-        label: t('¿Cuántas personas de su equipo lo usarían?', 'Quantas pessoas da sua equipe o usariam?', 'How many people on your team would use it?'),
+        label: t('¿Cuántas personas de su equipo usarían el sistema?', 'Quantas pessoas da sua equipe usariam o sistema?', 'How many people on your team would use the system?'),
         options: PEOPLE_RANGES,
       },
       { services: ['desarrollo', 'gestion'], requiredFor: ['desarrollo', 'gestion'], showIf: NOT_PERSONAL },
@@ -647,7 +664,12 @@ export const CONTEXT_SECTION: Section = {
     shared(
       {
         id: 'x_usuarios_ext', type: 'single',
-        label: t('¿Lo usarían también clientes, alumnos u otras personas de afuera?', 'Também seria usado por clientes, alunos ou outras pessoas de fora?', 'Would customers, students or other outside people use it too?'),
+        label: t('¿También usarían el sistema clientes, alumnos u otras personas de afuera?', 'Clientes, alunos ou outras pessoas de fora também usariam o sistema?', 'Would customers, students or other outside people use the system too?'),
+        help: t(
+          'Por ejemplo, clientes que hacen pedidos o reservan turnos desde la web.',
+          'Por exemplo, clientes que fazem pedidos ou agendam horários pelo site.',
+          'For example, customers placing orders or booking appointments online.',
+        ),
         options: [
           o('no', 'No, solo uso interno', 'Não, só uso interno', 'No, internal use only'),
           o('hasta-100', 'Sí, hasta 100 por mes', 'Sim, até 100 por mês', 'Yes, up to 100 a month'),
@@ -695,15 +717,20 @@ export const CLOSING_SECTION: Section = {
   color: '#ffe27a',
   title: t('Objetivos y reunión', 'Objetivos e reunião', 'Goals and meeting'),
   intro: t(
-    'Esta información permite preparar la videollamada. La propuesta final se define en conjunto, según lo que más convenga.',
-    'Estas informações permitem preparar a videochamada. A proposta final é definida em conjunto, conforme o que for mais conveniente.',
-    'This information is used to prepare the video call. The final proposal is defined jointly, based on what suits you best.',
+    'Con esto preparamos la videollamada. La propuesta final la definimos juntos.',
+    'Com isto preparamos a videochamada. A proposta final definimos juntos.',
+    'This helps us prepare the video call. We will shape the final proposal together.',
   ),
   questions: [
     {
       // Con Soporte solo, el alcance ya lo dice `s_tipo` (reparación puntual o mantenimiento periódico).
       id: 'e_alcance', type: 'single', required: true, showIf: { not: ONLY_SUPPORT },
       label: t('¿Qué alcance imagina para este trabajo?', 'Que alcance imagina para este trabalho?', 'What scope do you have in mind?'),
+      help: t(
+        'Si todavía no lo sabe, elija «Todavía no lo sé»: lo vemos juntos en la reunión.',
+        'Se ainda não sabe, escolha «Ainda não sei»: vemos juntos na reunião.',
+        'If you don\'t know yet, choose "I\'m not sure yet": we will work it out in the meeting.',
+      ),
       options: [
         o('puntual', 'Resolver algo puntual', 'Resolver algo pontual', 'Solve one specific thing'),
         o('etapa', 'Una primera etapa, y después ver', 'Uma primeira etapa, e depois ver', 'A first phase, then see'),
@@ -716,9 +743,9 @@ export const CLOSING_SECTION: Section = {
       id: 'e_objetivos', type: 'textarea', maxLength: 400, showIf: { all: [{ not: ONLY_SUPPORT }, NOT_PERSONAL] },
       label: t('¿Qué objetivos tiene la empresa para los próximos 6 a 12 meses?', 'Quais objetivos a empresa tem para os próximos 6 a 12 meses?', "What are the company's goals for the next 6 to 12 months?"),
       help: t(
-        'Más allá de lo que necesita ahora: hacia dónde quiere ir.',
-        'Além do que precisa agora: aonde quer chegar.',
-        'Beyond what you need now: where you want to get to.',
+        'Pensando a mediano plazo, no solo en lo de ahora. Si todavía no lo tiene claro, puede omitirla.',
+        'Pensando no médio prazo, não só no agora. Se ainda não está claro, pode pular.',
+        'Think medium term, not just about today. If it is not clear yet, you can skip it.',
       ),
       placeholder: t('Ej.: cerrar el mes en un día y abrir una segunda sucursal con el mismo sistema', 'Ex.: fechar o mês em um dia e abrir uma segunda filial com o mesmo sistema', 'E.g.: close the month in one day and open a second branch on the same system'),
       variants: [
@@ -772,7 +799,7 @@ export const CLOSING_SECTION: Section = {
     {
       id: 'e_horario', type: 'multi', showIf: { not: SUPPORT_EMERGENCY_ONLY },
       label: t('Franja preferida para la videollamada', 'Horário preferido para a videochamada', 'Preferred time for the video call'),
-      help: t('En su horario local.', 'No seu horário local.', 'In your local time.'),
+      help: t('En la hora de donde usted está.', 'No horário de onde você está.', 'In the time zone where you are.'),
       options: [
         o('manana', 'Mañana', 'Manhã', 'Morning'),
         o('mediodia', 'Mediodía', 'Meio-dia', 'Midday'),
@@ -807,9 +834,9 @@ export const CONTACT_SECTION: Section = {
   color: '#e8edf4',
   title: t('Datos de contacto', 'Dados de contato', 'Contact details'),
   intro: t(
-    'Último paso. Necesitamos al menos un medio de contacto, correo o teléfono, por si el mensaje de WhatsApp no llega.',
-    'Último passo. Precisamos de pelo menos um meio de contato, e-mail ou telefone, caso a mensagem de WhatsApp não chegue.',
-    "Last step. We need at least one way to reach you, email or phone, in case the WhatsApp message doesn't arrive.",
+    'Último paso. Déjenos al menos un correo o un teléfono, por si el mensaje de WhatsApp no llega.',
+    'Último passo. Deixe pelo menos um e-mail ou um telefone, caso a mensagem de WhatsApp não chegue.',
+    "Last step. Leave at least an email or a phone number, in case the WhatsApp message doesn't arrive.",
   ),
   questions: [
     { id: 'p_nombre', type: 'text', required: true, autoComplete: 'name', label: t('Nombre y apellido', 'Nome e sobrenome', 'Full name') },
@@ -830,9 +857,9 @@ export const CONTACT_SECTION: Section = {
     {
       id: 'p_ubicacion', type: 'text', maxLength: 80, autoComplete: 'address-level2', required: ON_SITE,
       label: t('Ciudad y país', 'Cidade e país', 'City and country'),
-      help: t('Para coordinar el horario de la reunión.', 'Para combinar o horário da reunião.', 'To schedule the meeting at a good time for you.'),
+      help: t('La usamos para coordinar el horario de la reunión.', 'Usamos para combinar o horário da reunião.', 'We use it to schedule the meeting at a good time for you.'),
       placeholder: t('Ej.: Rosario, Argentina', 'Ex.: Porto Alegre, Brasil', 'E.g.: Austin, United States'),
-      variants: [{ when: ON_SITE, help: t('Para la visita presencial.', 'Para a visita presencial.', 'For the on-site visit.') }],
+      variants: [{ when: ON_SITE, help: t('La necesitamos para ir a atenderlo.', 'Precisamos dela para ir atendê-lo.', 'We need it to come and help you on site.') }],
     },
     {
       id: 'p_correo', type: 'text', format: 'email', autoComplete: 'email', inputMode: 'email',
@@ -844,11 +871,11 @@ export const CONTACT_SECTION: Section = {
       id: 'p_telefono', type: 'text', format: 'phone', maxLength: 25, autoComplete: 'tel', inputMode: 'tel',
       required: { not: { answered: 'p_correo' } },
       label: t('Teléfono o WhatsApp, con código de país', 'Telefone ou WhatsApp, com código do país', 'Phone or WhatsApp, with country code'),
-      help: t('Opcional si dejó su correo.', 'Opcional se deixou seu e-mail.', 'Optional if you left your email.'),
+      help: t('Solo por si el correo no llega.', 'Só para o caso de o e-mail não chegar.', 'Just in case the email does not reach you.'),
       placeholder: t('+54 9 11 1234 5678', '+55 11 91234 5678', '+1 512 555 0100'),
       variants: [{
         when: { not: { answered: 'p_correo' } },
-        help: t('Sin correo, necesitamos un teléfono para contactarlo.', 'Sem e-mail, precisamos de um telefone para contatá-lo.', 'Without an email, we need a phone number to reach you.'),
+        help: t('Como no dejó correo, necesitamos un teléfono para contactarlo.', 'Como não deixou e-mail, precisamos de um telefone para contatá-lo.', 'Since you left no email, we need a phone number to reach you.'),
       }],
     },
   ],

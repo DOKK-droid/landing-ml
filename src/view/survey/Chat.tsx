@@ -19,7 +19,8 @@ export function Chat({ locale, ctrl, step }: { locale: Locale; ctrl: SurveyContr
   const d = DICTIONARIES[locale].survey;
   const { section } = step;
   // El banner y la vista previa siguen a la pregunta actual al instante; la zona de respuesta cambia en secuencia.
-  const { shown, phase } = useSwap(step, step.index, EXIT_MS, TYPING_MS);
+  // La transición es por pregunta (su id): la misma pregunta rearmada al escribir no es una pregunta nueva.
+  const { shown, phase } = useSwap(step, step.question.id, step.index, EXIT_MS, TYPING_MS);
 
   return (
     <div className="chat" style={{ '--c': section.color ?? 'var(--cyan)' } as React.CSSProperties}>
